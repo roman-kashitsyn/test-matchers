@@ -185,10 +185,12 @@ orElse l r = oneOf [l, r]
 isEmpty :: (Show (t a), Foldable t, Applicative f) => MatcherF f (t a)
 isEmpty = simpleMatcher null "is empty"
 
--- | Checks that elements of the container match the matchers exactly.
+-- | Checks that elements of the container are matched by the matchers
+-- exactly. The number of elements in the container should match the
+-- number of matchers in the list.
 elementsAre :: (Foldable t, Monad f, Show a, Show (t a))
-            => [MatcherF f a]
-            -> MatcherF f (t a)
+            => [MatcherF f a]   -- ^ List of matchers for the elements of the list.
+            -> MatcherF f (t a) -- ^ Matcher for the whole container.
 elementsAre matchers = maybe emptyTree mkTree
   where
     emptyTree = Node False name noValueMessage <$> (sequenceA $ map ($ Nothing) matchers)
@@ -211,7 +213,7 @@ elementsAre matchers = maybe emptyTree mkTree
 -- | Matcher that succeeds if the argument starts with the specified
 -- prefix.
 startsWith :: (Applicative f, Show a, Eq a)
-           => [a]
+           => [a]            -- ^ The prefix the list is expected to have.
            -> MatcherF f [a]
 startsWith xs = simpleMatcher (xs `isPrefixOf`)
                 (PP.hsep ["starts with", toDoc xs])
@@ -219,14 +221,14 @@ startsWith xs = simpleMatcher (xs `isPrefixOf`)
 -- | Matcher that succeeds if the argument ends with the specified
 -- suffix.
 endsWith :: (Applicative f, Show a, Eq a)
-           => [a]
+           => [a]            -- ^ The suffix the list is expected to have.
            -> MatcherF f [a]
 endsWith xs = simpleMatcher (xs `isSuffixOf`)
               (PP.hsep ["ends with", toDoc xs])
 
 -- | Matcher that succeeds if the argument contains the given infix.
 containsInOrder :: (Applicative f, Show a, Eq a)
-           => [a]
+           => [a]            -- ^ The infix the list is expected to have.
            -> MatcherF f [a]
 containsInOrder xs = simpleMatcher (xs `isInfixOf`)
                      (PP.hsep ["contains in order", toDoc xs])
@@ -238,14 +240,14 @@ tuple2 mx my = (property "fst" fst mx) `andAlso` (property "snd" snd my)
 -- | Makes a matcher that only matches Left values satisfying given
 -- matcher.
 leftIs :: (Show a, Show b, Monad f)
-       => MatcherF f a -- ^ Matcher of a left value
+       => MatcherF f a -- ^ the matcher for the left side of Either.
        -> MatcherF f (Either a b)
 leftIs  = prism "Left"  $ \x -> case x of { Left a  -> Just a; _ -> Nothing }
 
 -- | Makes a matcher that only matches Right values satisfying given
 -- matcher.
 rightIs :: (Show a, Show b, Monad f)
-        => MatcherF f b -- ^ Matcher of a right value
+        => MatcherF f b -- ^ the matcher for the right side of Either.
         -> MatcherF f (Either a b)
 rightIs = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing }
 
@@ -257,17 +259,18 @@ contramap f p = p . fmap (fmap f)
 -- It's equivalent to 'contramap' but also takes a name for
 -- mismatch reporting.
 property :: (Show a, Show s, Applicative f)
-         => String      -- ^ Name of the property of the structure 's'
-         -> (s -> a)    -- ^ The projection from a structure 's' to it's substructure 'a'
-         -> (MatcherF f a) -- ^ Matcher of the substructure 'a'
+         => String      -- ^ The name of the property of the structure 's'
+         -> (s -> a)    -- ^ The projection from a structure 's' to it's substructure 'a'.
+         -> (MatcherF f a) -- ^ Matcher of the substructure 'a'.
          -> (MatcherF f s)
 property name proj m = aggregateMatcher and msg [contramap proj m]
   where msg = PP.hsep ["property", PP.text name, "is"]
 
+-- | Builds a matcher for one alternative of a sum type given matcher for .
 prism :: (Show s, Show a, Monad f)
-      => String
-      -> (s -> Maybe a)
-      -> MatcherF f a
+      => String         -- ^ The name of the selected alternative of the structure 's'.
+      -> (s -> Maybe a) -- ^ The projection that tries to select the alternative 'a'.
+      -> MatcherF f a   -- ^ The matcher for the value of the alternative.
       -> MatcherF f s
 prism name p m v =
   case v of
