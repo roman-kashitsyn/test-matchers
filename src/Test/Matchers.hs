@@ -41,7 +41,7 @@ module Test.Matchers
   , elementsAre
   , startsWith
   , endsWith
-  , containsInOrder
+  , hasInfix
 
   -- * Matchers for basic types from the standard library
   , tuple2
@@ -227,11 +227,11 @@ endsWith xs = simpleMatcher (xs `isSuffixOf`)
               (PP.hsep ["ends with", toDoc xs])
 
 -- | Matcher that succeeds if the argument contains the given infix.
-containsInOrder :: (Applicative f, Show a, Eq a)
+hasInfix :: (Applicative f, Show a, Eq a)
            => [a]            -- ^ The infix the list is expected to have.
            -> MatcherF f [a]
-containsInOrder xs = simpleMatcher (xs `isInfixOf`)
-                     (PP.hsep ["contains in order", toDoc xs])
+hasInfix xs = simpleMatcher (xs `isInfixOf`)
+              (PP.hsep ["has infix", toDoc xs])
 
 -- | Builds a matcher for a pair from the matchers of components.
 tuple2 :: (Show a, Show b, Applicative f) => MatcherF f a -> MatcherF f b -> MatcherF f (a, b)

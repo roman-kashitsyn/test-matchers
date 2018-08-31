@@ -48,8 +48,8 @@ main = hspec $ do
         ok "starts with [1,1]" "[1,1,2,3]"
       match [1, 1, 2, 3] (endsWith [2, 3]) `shouldBe`
         ok "ends with [2,3]" "[1,1,2,3]"
-      match [1, 1, 2, 3] (containsInOrder [1, 2]) `shouldBe`
-        ok "contains in order [1,2]" "[1,1,2,3]"
+      match [1, 1, 2, 3] (hasInfix [1, 2]) `shouldBe`
+        ok "has infix [1,2]" "[1,1,2,3]"
 
   describe "Test.HUnit integration" $ do
 
