@@ -6,6 +6,16 @@ import GHC.IO.Exception
 import Control.Exception
 import Test.Matchers
 
+data Tree a = Leaf a | Fork (Tree a) (Tree a) deriving (Show, Eq)
+
+treeEq :: (Show a, Eq a, Monad f) => Tree a -> MatcherF f (Tree a)
+treeEq (Leaf x) =
+  prism "Leaf" (\t -> case t of Leaf x' -> Just x'; _ -> Nothing) (eq x)
+treeEq (Fork l r) =
+  prism "Fork"
+  (\t -> case t of Fork l' r' -> Just (l' &. r); _ -> Nothing)
+  (allOf $ matcher (treeEq l) &> matcher (treeEq r))
+
 ok :: Message -> Message -> MatchTree
 ok msg val = Node True msg val []
 
@@ -75,3 +85,8 @@ main = hspec $ do
          "exception of type ArithException matches"
          (fromString $ show unsupportedOperation)
          [nok (fromString $ "a value equal to " ++ show DivideByZero) "nothing"])
+
+  describe "Can match custom types" $ do
+    it "can match trees" $ do
+      let t = (Fork (Fork (Leaf 5) (Leaf 7)) (Leaf 10))
+      t `shouldMatch` treeEq t

@@ -15,6 +15,7 @@ unit-testing and make tests easier to debug.
 -}
 module Test.Matchers
   ( MatcherF
+  , MatcherSetF
   , Matcher
   , Message
 
@@ -29,6 +30,8 @@ module Test.Matchers
   , gt
 
   -- * Matchers combinators
+  , matcher
+  , matchers
   , anything
   , allOf
   , oneOf
@@ -57,11 +60,16 @@ module Test.Matchers
   , shouldMatch
   , shouldMatchIO
   , match
+
+  -- * Operators
+  , (&.)
+  , (&>)
   ) where
 
+import Control.Applicative (liftA2)
 import           Control.Exception     (Exception (..), Handler (..),
                                         SomeException, catches)
-import           Data.Foldable         (Foldable, null, toList)
+import           Data.Foldable         (Foldable, null, toList, foldMap)
 import           Data.Functor.Identity (Identity (..), runIdentity)
 import           Data.Typeable         (typeOf)
 import           Data.List             (isPrefixOf, isInfixOf, isSuffixOf)
@@ -78,6 +86,21 @@ type Message = PP.Doc
 -- messages when some parts of the structure being matched is missing.
 type MatcherF f a = Maybe (f a) -> f MatchTree
 
+-- | A (possibly empty) group of matchers. A set of matchers could be
+-- turned into a matcher via aggregation functions, e.g. 'allOf' or
+-- 'oneOf'.
+--
+-- Matcher sets can be composed "sequentially" or in
+-- "parallel".
+--
+-- "Sequential" composition combines @MatcherSetF f a@ and
+-- @MatcherSetF f b@ into @MatcherSetF f (a, b)@ and is achieved via the
+-- @&>@ operator.
+--
+-- "Parallel" composition combines multiple @MatcherSetF f a@ into one
+-- and is achieved via 'mappend'.
+newtype MatcherSetF f a = MatcherSetF { matchF :: Maybe (f a) -> f [MatchTree] }
+
 -- | A specialization of the 'MatcherF' that can only match pure
 -- values.
 type Matcher a    = MatcherF Identity a
@@ -90,6 +113,10 @@ data MatchTree
     , nodeMatchedValue :: Message     -- ^ String representation of the value matched.
     , nodeSubnodes     :: [MatchTree] -- ^ Submatchers used to produce this result.
     } deriving (Show, Eq)
+
+instance (Applicative f) => Monoid (MatcherSetF f a) where
+  mempty = MatcherSetF $ const $ pure []
+  mappend (MatcherSetF l) (MatcherSetF r) = MatcherSetF $ \x -> liftA2 mappend (l x) (r x)
 
 noValueMessage :: Message
 noValueMessage = "nothing"
@@ -110,6 +137,17 @@ simpleMatcher predicate msg v =
   case v of
     Nothing -> pure $ Node False msg noValueMessage []
     Just fa -> (\x -> Node (predicate x) msg (inputToDoc (Just x)) []) <$> fa
+
+
+aggregateWith :: (Show a, Applicative f)
+              => ([Bool] -> Bool)
+              -> Message
+              -> MatcherSetF f a
+              -> MatcherF f a
+aggregateWith aggr description matcherSet value =
+  let subnodesF = matchF matcherSet $ value
+      msgF = inputToDocF value
+  in liftA2 (\xs m -> Node (aggr $ map nodeValue xs) description m xs) subnodesF msgF
 
 -- | Makes a matcher that aggregates results of submatchers.
 aggregateMatcher :: (Show a, Applicative f)
@@ -157,15 +195,21 @@ cmpSatisfies p symbol bound = simpleMatcher (\x -> p $ compare x bound) message
 anything :: (Show a, Applicative f) => MatcherF f a
 anything = simpleMatcher (const True) "anything"
 
+matchers :: (Applicative f, Foldable t) => t (MatcherF f a) -> MatcherSetF f a
+matchers = foldMap matcher
+
+matcher :: (Functor f) => MatcherF f a -> MatcherSetF f a
+matcher = MatcherSetF . fmap (fmap pure)
+
 -- | Constructs a matcher that succeed if all the matchers in the
 -- provided list succeed.
-allOf :: (Show a, Applicative f) => [MatcherF f a] -> MatcherF f a
-allOf = aggregateMatcher and "all of"
+allOf :: (Show a, Applicative f) => MatcherSetF f a -> MatcherF f a
+allOf = aggregateWith and "all of"
 
 -- | Constructs a matcher that succeed if at least one of the matchers
 -- in the provided list succeed.
-oneOf :: (Show a, Applicative f) => [MatcherF f a] -> MatcherF f a
-oneOf = aggregateMatcher or "one of"
+oneOf :: (Show a, Applicative f) => MatcherSetF f a -> MatcherF f a
+oneOf = aggregateWith or "one of"
 
 -- | Inverts the outcome of the given matcher.
 doNotMatch :: (Show a, Applicative f)
@@ -175,11 +219,11 @@ doNotMatch m = aggregateMatcher (and . map not) "not" [m]
 
 -- | A version of 'allOf' specialized for two submatchers.
 andAlso :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f a
-andAlso l r = allOf [l, r]
+andAlso l r = allOf $ matchers [l, r]
 
 -- | A version of 'oneOf' specialized for two submatchers.
 orElse :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f a
-orElse l r = oneOf [l, r]
+orElse l r = oneOf $ matchers [l, r]
 
 -- | Checks that the container has no values.
 isEmpty :: (Show (t a), Foldable t, Applicative f) => MatcherF f (t a)
@@ -366,3 +410,21 @@ prettyPrint = PP.render . treeToDoc
 
 toDoc :: (Show a) => a -> Message
 toDoc = PP.text . show
+
+-- Combinators
+
+(&.) :: a -> b -> (a, b)
+x &. y = (x, y)
+
+infixl 7 &.
+
+(&>) :: (Show a, Show b, Applicative f)
+     => MatcherSetF f a
+     -> MatcherSetF f b
+     -> MatcherSetF f (a, b)
+ma &> mb = MatcherSetF $ \maybeP ->
+  liftA2 mappend
+  (matchF ma $ fmap (fmap fst) maybeP)
+  (matchF mb $ fmap (fmap snd) maybeP)
+
+infixl 7 &>
