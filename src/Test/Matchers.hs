@@ -3,7 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {- |
 Module:       Test.Matchers
-Description:  Simple matcher combinators for simpler unit testing.
+Description:  Simple matcher combinators for better unit testing.
 Copyright:    (c) Roman Kashitsyn, 2018
 License:      Apache2
 Maintainer:   roman.kashitsyn@gmail.com
@@ -52,6 +52,7 @@ module Test.Matchers
   , rightIs
   , property
   , prism
+  , contramap
 
   -- * Exception matching
   , throws
@@ -70,6 +71,7 @@ import Control.Applicative (liftA2)
 import           Control.Exception     (Exception (..), Handler (..),
                                         SomeException, catches)
 import           Data.Foldable         (Foldable, null, toList, foldMap)
+import           Data.Traversable (Traversable, )
 import           Data.Functor.Identity (Identity (..), runIdentity)
 import           Data.Typeable         (typeOf)
 import           Data.List             (isPrefixOf, isInfixOf, isSuffixOf)
@@ -283,14 +285,14 @@ tuple2 mx my = (property "fst" fst mx) `andAlso` (property "snd" snd my)
 
 -- | Makes a matcher that only matches Left values satisfying given
 -- matcher.
-leftIs :: (Show a, Show b, Monad f)
+leftIs :: (Show a, Show b, Traversable f, Applicative f)
        => MatcherF f a -- ^ the matcher for the left side of Either.
        -> MatcherF f (Either a b)
 leftIs  = prism "Left"  $ \x -> case x of { Left a  -> Just a; _ -> Nothing }
 
 -- | Makes a matcher that only matches Right values satisfying given
 -- matcher.
-rightIs :: (Show a, Show b, Monad f)
+rightIs :: (Show a, Show b, Traversable f, Applicative f)
         => MatcherF f b -- ^ the matcher for the right side of Either.
         -> MatcherF f (Either a b)
 rightIs = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing }
@@ -310,8 +312,9 @@ property :: (Show a, Show s, Applicative f)
 property name proj m = aggregateMatcher and msg [contramap proj m]
   where msg = PP.hsep ["property", PP.text name, "is"]
 
--- | Builds a matcher for one alternative of a sum type given matcher for .
-prism :: (Show s, Show a, Monad f)
+-- | Builds a matcher for one alternative of a sum type given matcher for a
+-- prism projection.
+prism :: (Show s, Show a, Traversable f, Applicative f)
       => String         -- ^ The name of the selected alternative of the structure 's'.
       -> (s -> Maybe a) -- ^ The projection that tries to select the alternative 'a'.
       -> MatcherF f a   -- ^ The matcher for the value of the alternative.
@@ -319,10 +322,10 @@ prism :: (Show s, Show a, Monad f)
 prism name p m v =
   case v of
     Nothing -> (Node False msg noValueMessage . pure) <$> (m Nothing)
-    Just fs -> do
-      s <- fs
-      let maybeA = p s
-      (\n -> Node (nodeValue n) msg (toDoc s) [n]) <$> m (fmap pure maybeA)
+    Just fs ->
+      (\n s -> Node (nodeValue n) msg (toDoc s) [n])
+      <$> m (sequenceA $ fmap p fs)
+      <*> fs
   where
     msg = PP.hsep ["prism", PP.text name, "is"]
 

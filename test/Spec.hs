@@ -8,7 +8,7 @@ import Test.Matchers
 
 data Tree a = Leaf a | Fork (Tree a) (Tree a) deriving (Show, Eq)
 
-treeEq :: (Show a, Eq a, Monad f) => Tree a -> MatcherF f (Tree a)
+treeEq :: (Show a, Eq a, Applicative f, Traversable f) => Tree a -> MatcherF f (Tree a)
 treeEq (Leaf x) =
   prism "Leaf" (\t -> case t of Leaf x' -> Just x'; _ -> Nothing) (eq x)
 treeEq (Fork l r) =
