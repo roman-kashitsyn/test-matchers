@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {- |
@@ -67,14 +66,15 @@ module Test.Matchers
   , (&>)
   ) where
 
-import Control.Applicative (liftA2)
+import           Control.Applicative   (liftA2)
 import           Control.Exception     (Exception (..), Handler (..),
                                         SomeException, catches)
-import           Data.Foldable         (Foldable, null, toList, foldMap)
-import           Data.Traversable (Traversable, )
+import           Control.Monad         (unless)
+import           Data.Foldable         (Foldable, foldMap, null, toList)
 import           Data.Functor.Identity (Identity (..), runIdentity)
+import           Data.List             (isInfixOf, isPrefixOf, isSuffixOf)
+import           Data.Traversable      (Traversable)
 import           Data.Typeable         (typeOf)
-import           Data.List             (isPrefixOf, isInfixOf, isSuffixOf)
 import           Test.HUnit            (Assertion, assertFailure)
 
 import           Text.PrettyPrint      (($+$), (<+>), (<>))
@@ -147,7 +147,7 @@ aggregateWith :: (Show a, Applicative f)
               -> MatcherSetF f a
               -> MatcherF f a
 aggregateWith aggr description matcherSet value =
-  let subnodesF = matchF matcherSet $ value
+  let subnodesF = matchF matcherSet value
       msgF = inputToDocF value
   in liftA2 (\xs m -> Node (aggr $ map nodeValue xs) description m xs) subnodesF msgF
 
@@ -159,7 +159,7 @@ aggregateMatcher :: (Show a, Applicative f)
                  -> MatcherF f a
 aggregateMatcher aggF msg ms = doMatch
   where
-    doMatch x = mkAgg <$> (inputToDocF x) <*> (sequenceA $ map ($ x) ms)
+    doMatch x = mkAgg <$> inputToDocF x <*> sequenceA (map ($ x) ms)
     mkAgg val nodes = Node (aggF $ map nodeValue nodes) msg val nodes
 
 -- | Matcher that succeeds if the argument equals to the specified
@@ -217,7 +217,7 @@ oneOf = aggregateWith or "one of"
 doNotMatch :: (Show a, Applicative f)
            => MatcherF f a -- ^ The matcher to inverse.
            -> MatcherF f a
-doNotMatch m = aggregateMatcher (and . map not) "not" [m]
+doNotMatch m = aggregateMatcher (all not) "not" [m]
 
 -- | A version of 'allOf' specialized for two submatchers.
 andAlso :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f a
@@ -239,17 +239,17 @@ elementsAre :: (Foldable t, Monad f, Show a, Show (t a))
             -> MatcherF f (t a) -- ^ Matcher for the whole container.
 elementsAre matchers = maybe emptyTree mkTree
   where
-    emptyTree = Node False name noValueMessage <$> (sequenceA $ map ($ Nothing) matchers)
+    emptyTree = Node False name noValueMessage <$> sequenceA (map ($ Nothing) matchers)
 
     mkTree fitems = do
       items <- fitems
       subnodes <- sequenceA $ go (toList items) matchers 0
-      return $ Node (and $ map nodeValue subnodes) name (toDoc items) subnodes
+      return $ Node (all nodeValue subnodes) name (toDoc items) subnodes
 
     name = "elements are"
     sizeMessage n = PP.hsep ["contains", "exactly", toDoc n, "elements"]
 
-    go (x:xs) (m:ms) n = (m $ Just $ pure x) : go xs ms (n + 1)
+    go (x:xs) (m:ms) n = m (Just $ pure x) : go xs ms (n + 1)
     go [] [] n = [pure $ Node True (sizeMessage n) (toDoc n) []]
     go moreItems@(x:_) [] n = [pure $ Node False "tail is empty" (toDoc moreItems) []]
     go [] ms@(m:_) n = [ m Nothing
@@ -281,7 +281,7 @@ hasInfix xs = simpleMatcher (xs `isInfixOf`)
 
 -- | Builds a matcher for a pair from the matchers of components.
 tuple2 :: (Show a, Show b, Applicative f) => MatcherF f a -> MatcherF f b -> MatcherF f (a, b)
-tuple2 mx my = (property "fst" fst mx) `andAlso` (property "snd" snd my)
+tuple2 mx my = property "fst" fst mx `andAlso` property "snd" snd my
 
 -- | Makes a matcher that only matches Left values satisfying given
 -- matcher.
@@ -305,10 +305,10 @@ contramap f p = p . fmap (fmap f)
 -- It's equivalent to 'contramap' but also takes a name for
 -- mismatch reporting.
 property :: (Show a, Show s, Applicative f)
-         => String      -- ^ The name of the property of the structure 's'
-         -> (s -> a)    -- ^ The projection from a structure 's' to it's substructure 'a'.
-         -> (MatcherF f a) -- ^ Matcher of the substructure 'a'.
-         -> (MatcherF f s)
+         => String       -- ^ The name of the property of the structure 's'
+         -> (s -> a)     -- ^ The projection from a structure 's' to it's substructure 'a'.
+         -> MatcherF f a -- ^ Matcher of the substructure 'a'.
+         -> MatcherF f s
 property name proj m = aggregateMatcher and msg [contramap proj m]
   where msg = PP.hsep ["property", PP.text name, "is"]
 
@@ -321,7 +321,7 @@ prism :: (Show s, Show a, Traversable f, Applicative f)
       -> MatcherF f s
 prism name p m v =
   case v of
-    Nothing -> (Node False msg noValueMessage . pure) <$> (m Nothing)
+    Nothing -> (Node False msg noValueMessage . pure) <$> m Nothing
     Just fs ->
       (\n s -> Node (nodeValue n) msg (toDoc s) [n])
       <$> m (sequenceA $ fmap p fs)
@@ -353,8 +353,8 @@ throws exMatcher maybeAction = do
   let excName = toDoc $ typeOf (undefined :: e)
       msg = PP.hsep [ "exception", "of", "type", excName, "matches"]
   case maybeAction of
-    Nothing -> do
-      return $ Node False msg noValueMessage [runIdentity $ exMatcher $ Nothing]
+    Nothing ->
+      return $ Node False msg noValueMessage [runIdentity $ exMatcher Nothing]
     Just action -> do
       outcome <- tryExn action
       case outcome of
@@ -364,9 +364,8 @@ throws exMatcher maybeAction = do
         OtherExn exn -> return $ Node False msg (toDoc exn) [runIdentity $ exMatcher Nothing]
 
 treeToAssertion :: MatchTree -> Assertion
-treeToAssertion tree = if nodeValue tree
-                       then return ()
-                       else assertFailure (prettyPrint tree)
+treeToAssertion tree = unless (nodeValue tree) $
+                         assertFailure (prettyPrint tree)
 
 -- | Checks that a pure value is matched by the given matcher.
 -- The function is designed to be used in test frameworks, mainly HUnit and
@@ -406,7 +405,7 @@ treeToDoc :: MatchTree -> PP.Doc
 treeToDoc (Node res msg val subnodes) =
   (if res then check else cross) <+>
   PP.hsep [msg, arrow, val] $+$
-  PP.nest 2 (foldr ($+$) PP.empty $ map treeToDoc subnodes)
+  PP.nest 2 (foldr (($+$) . treeToDoc) PP.empty subnodes)
 
 prettyPrint :: MatchTree -> String
 prettyPrint = PP.render . treeToDoc
