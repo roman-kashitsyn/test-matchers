@@ -77,10 +77,14 @@ import           Data.Traversable      (Traversable)
 import           Data.Typeable         (typeOf)
 import           Test.HUnit            (Assertion, assertFailure)
 
-import           Text.PrettyPrint      (($+$), (<+>), (<>))
-import qualified Text.PrettyPrint      as PP
+import           Data.Text.Lazy (unpack)
+import           Data.Text.Prettyprint.Doc      ((<+>), (<>))
+import qualified Data.Text.Prettyprint.Doc      as PP
 
-type Message = PP.Doc
+import           Data.Text.Prettyprint.Doc.Render.Terminal (AnsiStyle)
+import qualified Data.Text.Prettyprint.Doc.Render.Terminal as PPT
+
+type Message = PP.Doc AnsiStyle
 
 -- | Matcher is a function mapping optional values to match trees.
 -- Nothing means that there's no value to match. This is not really
@@ -114,7 +118,14 @@ data MatchTree
     , nodeMessage      :: Message     -- ^ Message describing this matcher.
     , nodeMatchedValue :: Message     -- ^ String representation of the value matched.
     , nodeSubnodes     :: [MatchTree] -- ^ Submatchers used to produce this result.
-    } deriving (Show, Eq)
+    } deriving (Show)
+
+instance Eq MatchTree where
+  (Node outcome msg val subs) == (Node outcome' msg' val' subs') =
+    outcome == outcome'
+    && (show msg) == (show msg')
+    && (show val == show val')
+    && subs == subs'
 
 instance (Applicative f) => Monoid (MatcherSetF f a) where
   mempty = MatcherSetF $ const $ pure []
@@ -191,7 +202,7 @@ cmpSatisfies :: (Ord a, Show a, Applicative f)
              -> a                  -- ^ Value to compare against
              -> MatcherF f a
 cmpSatisfies p symbol bound = simpleMatcher (\x -> p $ compare x bound) message
-  where message = PP.hsep ["a", "value", PP.text symbol, toDoc bound]
+  where message = PP.hsep ["a", "value", PP.pretty symbol, toDoc bound]
 
 -- | Matcher that always succeeds.
 anything :: (Show a, Applicative f) => MatcherF f a
@@ -310,7 +321,7 @@ property :: (Show a, Show s, Applicative f)
          -> MatcherF f a -- ^ Matcher of the substructure 'a'.
          -> MatcherF f s
 property name proj m = aggregateMatcher and msg [contramap proj m]
-  where msg = PP.hsep ["property", PP.text name, "is"]
+  where msg = PP.hsep ["property", PP.pretty name, "is"]
 
 -- | Builds a matcher for one alternative of a sum type given matcher for a
 -- prism projection.
@@ -327,7 +338,7 @@ prism name p m v =
       <$> m (sequenceA $ fmap p fs)
       <*> fs
   where
-    msg = PP.hsep ["prism", PP.text name, "is"]
+    msg = PP.hsep ["prism", PP.pretty name, "is"]
 
 -- | Represents a result of IO action execution.
 data ActionOutcome e
@@ -395,23 +406,34 @@ shouldMatchIO action matcher = matcher (Just action) >>= treeToAssertion
 match :: (Show a) => a -> Matcher a -> MatchTree
 match x p = runIdentity $ p (Just $ Identity x)
 
-check, cross, arrow :: PP.Doc
+check, cross, arrow :: Message
 check = "☑"
 cross = "☒"
 arrow = "←"
 
 -- | Pretty-prints a matching tree.
-treeToDoc :: MatchTree -> PP.Doc
+treeToDoc :: MatchTree -> Message
 treeToDoc (Node res msg val subnodes) =
-  (if res then check else cross) <+>
-  PP.hsep [msg, arrow, val] $+$
-  PP.nest 2 (foldr (($+$) . treeToDoc) PP.empty subnodes)
+  PP.annotate msgStyle (if res then check else cross) <+>
+  if null subnodes
+  then lineDoc
+  else PP.vsep [lineDoc, subtreeDoc]
+  where msgStyle = if res
+                   then PPT.colorDull PPT.Green
+                   else PPT.bold <> PPT.color PPT.Red
+        valStyle = PPT.italicized
+        lineDoc = PP.hsep
+                  [ PP.annotate msgStyle msg
+                  , PP.annotate valStyle (arrow <+> val)
+                  ]
+        subtreeDoc = PP.nest 2 (PP.vsep $ map treeToDoc subnodes)
 
 prettyPrint :: MatchTree -> String
-prettyPrint = PP.render . treeToDoc
+prettyPrint = unpack . render . treeToDoc
+  where render = PPT.renderLazy . PP.layoutPretty PP.defaultLayoutOptions
 
 toDoc :: (Show a) => a -> Message
-toDoc = PP.text . show
+toDoc = PP.pretty . show
 
 -- Combinators
 
