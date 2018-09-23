@@ -5,6 +5,8 @@ import Data.String (IsString(..))
 import GHC.IO.Exception
 import Control.Exception
 import Test.Matchers
+import Test.HUnit.Lang (HUnitFailure(..), FailureReason(Reason))
+import System.Environment (unsetEnv, setEnv)
 
 data Tree a = Leaf a | Fork (Tree a) (Tree a) deriving (Show, Eq)
 
@@ -21,6 +23,16 @@ ok msg val = Node True msg val []
 
 nok :: Message -> Message -> MatchTree
 nok msg val = Node False msg val []
+
+colorVar :: String
+colorVar = "TEST_MATCHERS_COLOR"
+
+withNoColor :: SpecWith a -> SpecWith a
+withNoColor = around_ $ bracket_ (setEnv colorVar "0") (unsetEnv colorVar)
+
+failureMessageIs :: Expectation -> String -> Expectation
+failureMessageIs test msg =
+  test `shouldThrow` (\(HUnitFailure _ reason) -> reason == Reason msg)
 
 type T = Either String Int
 
@@ -90,3 +102,18 @@ main = hspec $ do
     it "can match trees" $ do
       let t = (Fork (Fork (Leaf 5) (Leaf 7)) (Leaf 10))
       t `shouldMatch` treeEq t
+
+  describe "Formats matching trees properly" $ withNoColor $ do
+    let t  = (Fork (Leaf 1) (Leaf 3))
+    let t' = (Fork (Leaf 1) (Leaf 2))
+    it "prints trace when there's just one failure" $ do
+      t `shouldMatch` treeEq t'
+        `failureMessageIs`
+        (unlines
+         [ "Expected:  a value equal to 2"
+         , "Got:       3"
+         , "  in prism Leaf is"
+         , "     Got: " ++ show (Leaf 3)
+         , "  in all of"
+         , "     Got: " ++ show (Leaf 1, Leaf 3)
+         , "  in prism Fork is"] ++ "     Got: " ++ show t)

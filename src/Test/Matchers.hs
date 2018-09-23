@@ -76,6 +76,7 @@ import           Data.List             (isInfixOf, isPrefixOf, isSuffixOf)
 import           Data.Traversable      (Traversable)
 import           Data.Typeable         (typeOf)
 import           Test.HUnit            (Assertion, assertFailure)
+import           System.Environment    (lookupEnv)
 
 import           Data.Text.Lazy (unpack)
 import           Data.Text.Prettyprint.Doc      ((<+>), (<>))
@@ -110,6 +111,9 @@ newtype MatcherSetF f a = MatcherSetF { matchF :: Maybe (f a) -> f [MatchTree] }
 -- | A specialization of the 'MatcherF' that can only match pure
 -- values.
 type Matcher a    = MatcherF Identity a
+
+-- | Should the fancy colors be used when pretty-printing mismatches.
+data ColorMode = Color | NoColor
 
 -- | The result of a matcher invokation.
 data MatchTree
@@ -179,7 +183,7 @@ eq :: (Eq a, Show a, Applicative f)
    => a          -- ^ The value that the argument must be equal to
    -> MatcherF f a
 eq value = simpleMatcher (== value) message
-  where message = PP.hsep ["a", "value", "equal", "to", toDoc value]
+  where message = PP.hsep ["a", "value", "equal", "to", annotateValue $ toDoc value]
 
 -- | Mathcer that succeeds if the argument is /greater than/ the
 -- specified value.
@@ -202,7 +206,7 @@ cmpSatisfies :: (Ord a, Show a, Applicative f)
              -> a                  -- ^ Value to compare against
              -> MatcherF f a
 cmpSatisfies p symbol bound = simpleMatcher (\x -> p $ compare x bound) message
-  where message = PP.hsep ["a", "value", PP.pretty symbol, toDoc bound]
+  where message = PP.hsep ["a", "value", PP.pretty symbol, annotateValue $ toDoc bound]
 
 -- | Matcher that always succeeds.
 anything :: (Show a, Applicative f) => MatcherF f a
@@ -374,9 +378,16 @@ throws exMatcher maybeAction = do
                                     in Node (nodeValue node) msg (toDoc exn) [node]
         OtherExn exn -> return $ Node False msg (toDoc exn) [runIdentity $ exMatcher Nothing]
 
+toColorMode :: Maybe String -> ColorMode
+toColorMode Nothing  = Color
+toColorMode (Just s) = if  s `elem` ["", "1", "yes", "true", "color"]
+                       then Color
+                       else NoColor
+
 treeToAssertion :: MatchTree -> Assertion
-treeToAssertion tree = unless (nodeValue tree) $
-                         assertFailure (prettyPrint tree)
+treeToAssertion tree = unless (nodeValue tree) $ do
+                         env <- lookupEnv "TEST_MATCHERS_COLOR"
+                         assertFailure $ prettyPrint (toColorMode env) tree
 
 -- | Checks that a pure value is matched by the given matcher.
 -- The function is designed to be used in test frameworks, mainly HUnit and
@@ -413,7 +424,15 @@ arrow = "←"
 
 -- | Pretty-prints a matching tree.
 treeToDoc :: MatchTree -> Message
-treeToDoc (Node res msg val subnodes) =
+treeToDoc tree = case tryGetTrace tree of
+                   Nothing  -> renderAsTree tree
+                   (Just path) -> renderPath path
+
+annotateValue :: Message -> Message
+annotateValue = PP.annotate PPT.italicized
+
+renderAsTree :: MatchTree -> Message
+renderAsTree (Node res msg val subnodes) =
   PP.annotate msgStyle (if res then check else cross) <+>
   if null subnodes
   then lineDoc
@@ -421,19 +440,54 @@ treeToDoc (Node res msg val subnodes) =
   where msgStyle = if res
                    then PPT.colorDull PPT.Green
                    else PPT.bold <> PPT.color PPT.Red
-        valStyle = PPT.italicized
         lineDoc = PP.hsep
                   [ PP.annotate msgStyle msg
-                  , PP.annotate valStyle (arrow <+> val)
+                  , annotateValue (arrow <+> val)
                   ]
-        subtreeDoc = PP.nest 2 (PP.vsep $ map treeToDoc subnodes)
+        subtreeDoc = PP.indent 2 (PP.vsep $ map treeToDoc subnodes)
 
-prettyPrint :: MatchTree -> String
-prettyPrint = unpack . render . treeToDoc
+renderPath :: [MatchTree] -> Message
+renderPath path =
+  case reverse path of
+    [] -> error "Internal error: empty path"
+    (reason:rest) -> if null rest
+                     then renderReason reason
+                     else PP.vsep [ renderReason reason
+                                  , PP.indent 2 $ renderRest rest
+                                  ]
+  where renderReason node =
+          PP.vcat [ PP.hsep [ PP.fill 10 $ "Expected:"
+                            , nodeMessage node
+                            ]
+                  , PP.hsep [ PP.fill 10 $ "Got:"
+                            , annotateValue $ nodeMatchedValue node
+                            ]
+                  ]
+        renderRest = PP.vsep . concatMap toEntry
+        toEntry node = [ PP.hsep ["in" , nodeMessage node]
+                       , PP.indent 3 $ PP.hsep [ "Got:"
+                                               , annotateValue $ nodeMatchedValue node
+                                               ]
+                       ]
+
+prettyPrint :: ColorMode -> MatchTree -> String
+prettyPrint mode = unpack . render . applyMode mode . treeToDoc
   where render = PPT.renderLazy . PP.layoutPretty PP.defaultLayoutOptions
+        applyMode NoColor = PP.unAnnotate
+        applyMode Color = id
 
 toDoc :: (Show a) => a -> Message
 toDoc = PP.pretty . show
+
+-- | Tries to find a single path in the tree that leads to the root
+-- cause of the failure.
+tryGetTrace :: MatchTree -> Maybe [MatchTree]
+tryGetTrace node
+  | nodeValue node = Nothing
+  | null (nodeSubnodes node) = Just [node]
+  | otherwise = case filter (not . nodeValue) (nodeSubnodes node) of
+                  [e] -> fmap (node:) $ tryGetTrace e
+                  _ -> Nothing
 
 -- Combinators
 
