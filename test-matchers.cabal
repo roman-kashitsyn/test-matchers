@@ -17,6 +17,11 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Test.Matchers
+                     , Test.Matchers.Simple
+                     , Test.Matchers.Message
+                     , Test.Matchers.Render
+                     , Test.Matchers.HUnit
+
   build-depends:       base >=4.8 && <5
                      , prettyprinter >=1.1 && <2
                      , prettyprinter-ansi-terminal >=1.1 && <2
