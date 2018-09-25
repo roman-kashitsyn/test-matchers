@@ -23,10 +23,12 @@ module Test.Matchers.Simple
   , simpleMatcher
   , aggregateMatcher
 
-  -- * Matchers for Eq types
+  -- * Matchers for 'Eq' and 'Ord' types
   , eq
   , lt
+  , le
   , gt
+  , ge
 
   -- * Matchers combinators
   , matcher
@@ -75,25 +77,54 @@ import           Data.List             (isInfixOf, isPrefixOf, isSuffixOf)
 import           Data.Traversable      (Traversable)
 import           Data.Typeable         (typeOf)
 
--- | Matcher is a function mapping optional values to match trees.
--- Nothing means that there's no value to match. This is not really
--- useful for the users directly but allows to construct meaningful
--- messages when some parts of the structure being matched is missing.
+-- | Matcher is a function from optional values to match trees.
+-- 'Nothing' means that there's no value to match. This is not useful
+-- directly but allows the library to construct meaningful messages
+-- when some parts of the structure being matched are missing.  The
+-- @f@ parameter is there so that we can match not just pure values
+-- but IO actions as well, see the 'throws' combinator as an example.
 type MatcherF f a = Maybe (f a) -> f MatchTree
 
--- | A (possibly empty) group of matchers. A set of matchers could be
--- turned into a matcher via aggregation functions, e.g. 'allOf' or
--- 'oneOf'.
+-- | A (possibly empty) group of matchers. A set of matchers can be
+-- turned into a proper matcher via aggregation functions,
+-- e.g. 'allOf' or 'oneOf'.
 --
--- Matcher sets can be composed "sequentially" or in
--- "parallel".
+-- Matcher sets can be composed \"sequentially\" or in
+-- \"parallel\".
 --
--- "Sequential" composition combines @MatcherSetF f a@ and
+-- \"Parallel\" composition combines @MatcherSetF f a@ and
 -- @MatcherSetF f b@ into @MatcherSetF f (a, b)@ and is achieved via the
--- @&>@ operator.
+-- '&>' operator.
 --
--- "Parallel" composition combines multiple @MatcherSetF f a@ into one
+-- @
+--           ╭───────── &. ─────────┬───────────────────────╮
+--           ┴                      ┴                       ╽
+--           a                      b                     (a,b)
+--           ┬                      ┬                       ┬
+--           ╽                      ╽                       ╽
+--  ╭─────────────────╮    ╭─────────────────╮   ╭─────────────────────╮
+--  │ MatcherSetF f a │ &> │ MatcherSetF f a │ = │ MatcherSetF f (a,b) │
+--  ╰─────────────────╯    ╰─────────────────╯   ╰─────────────────────╯
+-- @
+--
+-- \"Sequential\" composition combines multiple @MatcherSetF f a@ into one
 -- and is achieved via 'mappend'.
+--
+-- @
+--                       a
+--                       ┬
+--  ╭─────────────────╮  │
+--  │ MatcherSetF f a │ ╾┤
+--  ╰─────────────────╯  │
+--        mappend        │
+--  ╭─────────────────╮  │
+--  │ MatcherSetF f a │ ╾┤
+--  ╰─────────────────╯  │
+--           =           │
+--  ╭─────────────────╮  │
+--  │ MatcherSetF f a │ ╾╯
+--  ╰─────────────────╯
+-- @
 newtype MatcherSetF f a = MatcherSetF { matchF :: Maybe (f a) -> f [MatchTree] }
 
 -- | A specialization of the 'MatcherF' that can only match pure
@@ -180,6 +211,13 @@ gt :: (Ord a, Show a, Applicative f)
    -> MatcherF f a
 gt = cmpSatisfies (== GT) ">"
 
+-- | Mathcer that succeeds if the argument is /greater than or equal to/
+-- the specified value.
+ge :: (Ord a, Show a, Applicative f)
+   => a
+   -> MatcherF f a
+ge = cmpSatisfies ((||) <$> (== GT) <*> (== EQ)) "≥"
+
 -- | Mathcer that succeeds if the argument is /less than/ the
 -- specified value.
 lt :: (Ord a, Show a, Applicative f)
@@ -187,12 +225,20 @@ lt :: (Ord a, Show a, Applicative f)
    -> MatcherF f a
 lt = cmpSatisfies (== LT) "<"
 
--- | A helper function to contruct matcher for Ord types
-cmpSatisfies :: (Ord a, Show a, Applicative f)
-             => (Ordering -> Bool) -- ^ Predicate matching the outcome of 'compare'
-             -> String             -- ^ Comparison symbol describing the matcher
-             -> a                  -- ^ Value to compare against
-             -> MatcherF f a
+-- | Mathcer that succeeds if the argument is /less than or equal to/
+-- the specified value.
+le :: (Ord a, Show a, Applicative f)
+   => a
+   -> MatcherF f a
+le = cmpSatisfies ((||) <$> (== LT) <*> (== EQ)) "≤"
+
+-- | A helper function to contruct matcher for 'Ord' types
+cmpSatisfies
+  :: (Ord a, Show a, Applicative f)
+  => (Ordering -> Bool) -- ^ Predicate matching the outcome of 'compare'.
+  -> String             -- ^ Comparison symbol describing the matcher.
+  -> a                  -- ^ Value to compare against.
+  -> MatcherF f a
 cmpSatisfies p symbol bound = simpleMatcher (\x -> p $ compare x bound) message
   where message = hsep ["a", "value", pretty symbol, display bound]
 
@@ -200,10 +246,19 @@ cmpSatisfies p symbol bound = simpleMatcher (\x -> p $ compare x bound) message
 anything :: (Show a, Applicative f) => MatcherF f a
 anything = simpleMatcher (const True) "anything"
 
-matchers :: (Applicative f, Foldable t) => t (MatcherF f a) -> MatcherSetF f a
+-- | Constructs a matcher set from a 'Foldable' container containing
+-- matchers.
+matchers
+  :: (Applicative f, Foldable t)
+  => t (MatcherF f a)
+  -> MatcherSetF f a
 matchers = foldMap matcher
 
-matcher :: (Functor f) => MatcherF f a -> MatcherSetF f a
+-- | Constructs a matcher set containing just a single matcher.
+matcher
+  :: (Functor f)
+  => MatcherF f a
+  -> MatcherSetF f a
 matcher = MatcherSetF . fmap (fmap pure)
 
 -- | Constructs a matcher that succeed if all the matchers in the
@@ -283,21 +338,27 @@ hasInfix xs = simpleMatcher (xs `isInfixOf`)
               (hsep ["has infix", display xs])
 
 -- | Builds a matcher for a pair from the matchers of components.
-tuple2 :: (Show a, Show b, Applicative f) => MatcherF f a -> MatcherF f b -> MatcherF f (a, b)
+tuple2
+  :: (Show a, Show b, Applicative f)
+  => MatcherF f a -- ^ Matcher for the 1st element of the pair.
+  -> MatcherF f b -- ^ Matcher for the 2nd element of the pair.
+  -> MatcherF f (a, b)
 tuple2 mx my = property "fst" fst mx `andAlso` property "snd" snd my
 
--- | Makes a matcher that only matches Left values satisfying given
+-- | Makes a matcher that only matches 'Left' values satisfying given
 -- matcher.
-leftIs :: (Show a, Show b, Traversable f, Applicative f)
-       => MatcherF f a -- ^ the matcher for the left side of Either.
-       -> MatcherF f (Either a b)
+leftIs
+  :: (Show a, Show b, Traversable f, Applicative f)
+  => MatcherF f a -- ^ Matcher for the left side of 'Either'.
+  -> MatcherF f (Either a b)
 leftIs  = prism "Left"  $ \x -> case x of { Left a  -> Just a; _ -> Nothing }
 
--- | Makes a matcher that only matches Right values satisfying given
+-- | Makes a matcher that only matches 'Right' values satisfying given
 -- matcher.
-rightIs :: (Show a, Show b, Traversable f, Applicative f)
-        => MatcherF f b -- ^ the matcher for the right side of Either.
-        -> MatcherF f (Either a b)
+rightIs
+  :: (Show a, Show b, Traversable f, Applicative f)
+  => MatcherF f b -- ^ Matcher for the right side of 'Either'.
+  -> MatcherF f (Either a b)
 rightIs = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing }
 
 contramap :: (Functor f) => (s -> a) -> MatcherF f a -> MatcherF f s
@@ -347,10 +408,10 @@ tryExn ma =
   , Handler (\(exn :: SomeException) -> pure $ OtherExn exn)
   ]
 
--- | Checks that an action throws an exception that matches the
--- provided matcher.
+-- | Checks that an IO action throws an exception satisfying the
+-- given matcher.
 throws :: forall e a. (Exception e)
-       => Matcher e     -- ^ Matcher of the exception.
+       => Matcher e  -- ^ Matcher for the exception value.
        -> MatcherF IO a
 throws exMatcher maybeAction = do
   let excName = display $ typeOf (undefined :: e)
@@ -366,7 +427,13 @@ throws exMatcher maybeAction = do
                                     in Node (nodeValue node) msg (display exn) [node]
         OtherExn exn -> return $ Node False msg (display exn) [runIdentity $ exMatcher Nothing]
 
-match :: (Show a) => a -> Matcher a -> MatchTree
+-- | Runs a pure matcher on the given value and returns the
+-- 'MatchTree'.
+match
+  :: (Show a)
+  => a -- ^ Value to match.
+  -> Matcher a -- ^ Matcher to run on the value.
+  -> MatchTree
 match x p = runIdentity $ p (Just $ Identity x)
 
 -- Combinators
@@ -376,6 +443,7 @@ x &. y = (x, y)
 
 infixl 7 &.
 
+-- | Parallel matcher set composition operator, see 'MatcherSetF' for details.
 (&>) :: (Show a, Show b, Applicative f)
      => MatcherSetF f a
      -> MatcherSetF f b

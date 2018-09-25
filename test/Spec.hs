@@ -60,9 +60,18 @@ main = hspec $ do
 
     it "can match comparable types" $ do
       match 3 (gt 1) `shouldBe` ok "a value > 1" "3"
+      match 1 (ge 1) `shouldBe` ok "a value ≥ 1" "1"
+      match 3 (ge 1) `shouldBe` ok "a value ≥ 1" "3"
+
       match 3 (lt 4) `shouldBe` ok "a value < 4" "3"
+      match 3 (le 4) `shouldBe` ok "a value ≤ 4" "3"
+      match 3 (le 3) `shouldBe` ok "a value ≤ 3" "3"
+
       match 3 (gt 4) `shouldBe` nok "a value > 4" "3"
+      match 3 (ge 4) `shouldBe` nok "a value ≥ 4" "3"
+
       match 3 (lt 1) `shouldBe` nok "a value < 1" "3"
+      match 3 (le 1) `shouldBe` nok "a value ≤ 1" "3"
 
     it "can match pairs" $ do
       match (3, 4) (tuple2 (eq 3) (gt 1)) `shouldBe`
