@@ -1,3 +1,16 @@
+{-# OPTIONS_HADDOCK hide #-}
+{- |
+Module:       Test.Matchers.HUnit
+Description:  HUnit integration.
+Copyright:    (c) Roman Kashitsyn, 2018
+License:      Apache2
+Maintainer:   roman.kashitsyn@gmail.com
+Stability:    experimental
+
+This module contains functions that allow one to use matchers in HUnit
+tests. Note that the same functions can be easily used in other test
+frameworks, e.g. hspec or tasty.
+-}
 module Test.Matchers.HUnit
   ( shouldMatch
   , shouldMatchIO
@@ -29,9 +42,8 @@ treeToAssertion tree = unless (nodeValue tree) $ do
 -- HSpec. If the value doesn't satisfy the matcher, the test will fail and
 -- print the detailed match tree.
 --
--- @
--- testCase = TestCase (fib 5 `shouldMatch` (eq 5))
--- @
+-- > testCase = TestCase (fib 5 `shouldMatch` eq 5)
+--
 shouldMatch :: (Show a)
             => a          -- ^ a value to match
             -> Matcher a  -- ^ matcher to run
@@ -41,9 +53,8 @@ shouldMatch x m = treeToAssertion (match x m)
 -- | A variant of 'shouldMatch' that matches an IO action instead of a
 -- pure value.
 --
--- @
--- readNonExistingFile `shouldMatchIO` throws (anything :: Matcher IOException)
--- @
+-- > readNonExistingFile `shouldMatchIO` throws (anything :: Matcher IOException)
+-- 
 shouldMatchIO :: IO a          -- ^ an action to match
               -> MatcherF IO a -- ^ a matcher of the action
               -> Assertion

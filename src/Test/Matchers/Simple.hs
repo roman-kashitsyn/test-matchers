@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_HADDOCK hide #-}
 {- |
 Module:       Test.Matchers.Simple
 Description:  Simple matcher combinators for better unit testing.
@@ -14,10 +15,7 @@ unit-testing and make tests easier to debug.
 -}
 module Test.Matchers.Simple
   ( MatcherF
-  , MatcherSetF
   , Matcher
-  , Message
-
   , MatchTree(..)
 
   , simpleMatcher
@@ -31,6 +29,7 @@ module Test.Matchers.Simple
   , ge
 
   -- * Matchers combinators
+  , MatcherSetF
   , matcher
   , matchers
   , anything
@@ -361,6 +360,8 @@ rightIs
   -> MatcherF f (Either a b)
 rightIs = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing }
 
+-- | Implementation of Data.Functor.Covariant.contramap.
+-- Avoid using it directly, prefer 'property' instead.
 contramap :: (Functor f) => (s -> a) -> MatcherF f a -> MatcherF f s
 contramap f p = p . fmap (fmap f)
 
@@ -438,6 +439,17 @@ match x p = runIdentity $ p (Just $ Identity x)
 
 -- Combinators
 
+-- | Helper operator to make the construction of nested pairs look a
+-- bit nicer.  Mostly useful for defining custom matchers.
+--
+-- >>> 1 &. 2
+-- (1,2)
+--
+-- >>> 1 &. 2 &. 3
+-- (1,(2,3))
+--
+-- >>> 1 &. 2 &. 3 &. 4
+-- (1,(2,(3,4)))
 (&.) :: a -> b -> (a, b)
 x &. y = (x, y)
 

@@ -1,6 +1,7 @@
+{-# OPTIONS_HADDOCK prune #-}
 {- |
 Module:       Test.Matchers.Message
-Description:  Types and functions for matcher descriptions manipulation.
+Description:  Types and functions to manipulate the matcher descriptions.
 Copyright:    (c) Roman Kashitsyn, 2018
 License:      Apache2
 Maintainer:   roman.kashitsyn@gmail.com

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_HADDOCK prune #-}
 {- |
 Module:       Test.Matchers.Render
 Description:  Functions for rendering match tree.
@@ -28,17 +29,21 @@ import qualified Data.Text.Prettyprint.Doc.Render.Terminal as PPT
 data Mode = PlainText | RichText
   deriving (Eq, Show, Ord, Enum, Bounded)
 
+-- | Options controlling the pretty-printing.
 data PPOptions
   = PPOptions
     { ppMode :: Mode
     }
 
--- | Pretty-prints a matching tree.
-treeToDoc :: MatchTree -> Message
-treeToDoc tree = case tryGetTrace tree of
-                   Nothing  -> renderAsTree tree
-                   (Just path) -> renderPath path
+-- | Renders the match tree as a document.  The function tries to be
+-- pick the most readable format to represent the failure.
+treeToMessage :: MatchTree -> Message
+treeToMessage tree = case tryGetTrace tree of
+                       Nothing  -> renderAsTree tree
+                       (Just path) -> renderPath path
 
+-- | Converts generic message styles into styles suitable for ANSI
+-- terminal.
 toAnsiStyle :: Style -> AnsiStyle
 toAnsiStyle style = case style of
                       Plain -> mempty
@@ -46,6 +51,16 @@ toAnsiStyle style = case style of
                       Success -> PPT.bold <> PPT.color PPT.Red
                       Failure -> PPT.colorDull PPT.Green
 
+-- | Renders the match tree as a textual tree: nested matchers have
+-- higher indentation and the color indicates success or failure of
+-- the matcher, i.e.
+--
+-- @
+-- ☒ the root ← root
+--   ☑ this node is OK ← good value
+--   ☒ this node failed :( ← bad value
+--     ☒ because this subnode failed. ← bad subvalue
+-- @
 renderAsTree :: MatchTree -> Message
 renderAsTree (Node res msg val subnodes) =
   annotate msgStyle (if res then check else cross) <+>
@@ -56,8 +71,9 @@ renderAsTree (Node res msg val subnodes) =
         lineDoc = hsep [ annotate msgStyle msg
                        , arrow <+> val
                        ]
-        subtreeDoc = indent 2 (vsep $ map treeToDoc subnodes)
+        subtreeDoc = indent 2 (vsep $ map treeToMessage subnodes)
 
+-- | Renders the list of tree nodes as a stack trace.
 renderPath :: [MatchTree] -> Message
 renderPath path =
   case reverse path of
@@ -97,10 +113,13 @@ tryGetTrace node
                   [e] -> fmap (node:) $ tryGetTrace e
                   _ -> Nothing
 
--- | Pretty-prints the 
-prettyPrint :: PPOptions -> MatchTree -> String
+-- | Pretty-prints the match tree according to the options provided.
+prettyPrint
+  :: PPOptions -- ^ Pretty-printing options.
+  -> MatchTree -- ^ Match tree to format.
+  -> String
 prettyPrint opts = unpack . render . PP.reAnnotate toAnsiStyle .
-                   applyMode (ppMode opts) . treeToDoc
+                   applyMode (ppMode opts) . treeToMessage
   where render = PPT.renderLazy . PP.layoutPretty PP.defaultLayoutOptions
         applyMode PlainText = PP.unAnnotate
         applyMode RichText = id
