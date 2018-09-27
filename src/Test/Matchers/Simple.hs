@@ -135,18 +135,18 @@ data ColorMode = Color | NoColor
 
 -- | The result of a matcher invokation.
 data MatchTree
-  = Node
-    { nodeValue        :: !Bool       -- ^ Whether the match was successful.
-    , nodeMessage      :: Message     -- ^ Message describing this matcher.
-    , nodeMatchedValue :: Message     -- ^ String representation of the value matched.
-    , nodeSubnodes     :: [MatchTree] -- ^ Submatchers used to produce this result.
+  = MatchTree
+    { mtValue        :: !Bool       -- ^ Whether the match was successful.
+    , mtOkMessage    :: Message     -- ^ Message describing this matcher.
+    , mtMatchedValue :: Message     -- ^ String representation of the value matched.
+    , mtSubnodes     :: [MatchTree] -- ^ Submatchers used to produce this result.
     } deriving (Show)
 
 instance Eq MatchTree where
-  (Node outcome msg val subs) == (Node outcome' msg' val' subs') =
+  (MatchTree outcome msg val subs) == (MatchTree outcome' msg' val' subs') =
     outcome == outcome'
-    && (show msg) == (show msg')
-    && (show val == show val')
+    && show msg == show msg'
+    && show val == show val'
     && subs == subs'
 
 instance (Applicative f) => Monoid (MatcherSetF f a) where
@@ -170,8 +170,8 @@ simpleMatcher :: (Show a, Applicative f)
               -> MatcherF f a
 simpleMatcher predicate msg v =
   case v of
-    Nothing -> pure $ Node False msg noValueMessage []
-    Just fa -> (\x -> Node (predicate x) msg (inputToDoc (Just x)) []) <$> fa
+    Nothing -> pure $ MatchTree False msg noValueMessage []
+    Just fa -> (\x -> MatchTree (predicate x) msg (inputToDoc (Just x)) []) <$> fa
 
 
 aggregateWith :: (Show a, Applicative f)
@@ -182,7 +182,7 @@ aggregateWith :: (Show a, Applicative f)
 aggregateWith aggr description matcherSet value =
   let subnodesF = matchF matcherSet value
       msgF = inputToDocF value
-  in liftA2 (\xs m -> Node (aggr $ map nodeValue xs) description m xs) subnodesF msgF
+  in liftA2 (\xs m -> MatchTree (aggr $ map mtValue xs) description m xs) subnodesF msgF
 
 -- | Makes a matcher that aggregates results of submatchers.
 aggregateMatcher :: (Show a, Applicative f)
@@ -193,7 +193,7 @@ aggregateMatcher :: (Show a, Applicative f)
 aggregateMatcher aggF msg ms = doMatch
   where
     doMatch x = mkAgg <$> inputToDocF x <*> sequenceA (map ($ x) ms)
-    mkAgg val nodes = Node (aggF $ map nodeValue nodes) msg val nodes
+    mkAgg val nodes = MatchTree (aggF $ map mtValue nodes) msg val nodes
 
 -- | Matcher that succeeds if the argument equals to the specified
 -- value.
@@ -296,21 +296,21 @@ elementsAre :: (Foldable t, Monad f, Show a, Show (t a))
             -> MatcherF f (t a) -- ^ Matcher for the whole container.
 elementsAre matchers = maybe emptyTree mkTree
   where
-    emptyTree = Node False name noValueMessage <$> sequenceA (map ($ Nothing) matchers)
+    emptyTree = MatchTree False name noValueMessage <$> sequenceA (map ($ Nothing) matchers)
 
     mkTree fitems = do
       items <- fitems
       subnodes <- sequenceA $ go (toList items) matchers 0
-      return $ Node (all nodeValue subnodes) name (display items) subnodes
+      return $ MatchTree (all mtValue subnodes) name (display items) subnodes
 
     name = "elements are"
     sizeMessage n = hsep ["contains", "exactly", display n, "elements"]
 
     go (x:xs) (m:ms) n = m (Just $ pure x) : go xs ms (n + 1)
-    go [] [] n = [pure $ Node True (sizeMessage n) (display n) []]
-    go moreItems@(x:_) [] n = [pure $ Node False "tail is empty" (display moreItems) []]
+    go [] [] n = [pure $ MatchTree True (sizeMessage n) (display n) []]
+    go moreItems@(x:_) [] n = [pure $ MatchTree False "tail is empty" (display moreItems) []]
     go [] ms@(m:_) n = [ m Nothing
-                       , pure $ Node False (sizeMessage (length ms + n)) (display n) []
+                       , pure $ MatchTree False (sizeMessage (length ms + n)) (display n) []
                        ]
 
 -- | Matcher that succeeds if the argument starts with the specified
@@ -386,9 +386,9 @@ prism :: (Show s, Show a, Traversable f, Applicative f)
       -> MatcherF f s
 prism name p m v =
   case v of
-    Nothing -> (Node False msg noValueMessage . pure) <$> m Nothing
+    Nothing -> (MatchTree False msg noValueMessage . pure) <$> m Nothing
     Just fs ->
-      (\n s -> Node (nodeValue n) msg (display s) [n])
+      (\n s -> MatchTree (mtValue n) msg (display s) [n])
       <$> m (sequenceA $ fmap p fs)
       <*> fs
   where
@@ -419,14 +419,14 @@ throws exMatcher maybeAction = do
       msg = hsep [ "exception", "of", "type", excName, "matches"]
   case maybeAction of
     Nothing ->
-      return $ Node False msg noValueMessage [runIdentity $ exMatcher Nothing]
+      return $ MatchTree False msg noValueMessage [runIdentity $ exMatcher Nothing]
     Just action -> do
       outcome <- tryExn action
       case outcome of
-        NoExn -> return $ Node False msg noValueMessage [runIdentity $ exMatcher Nothing]
+        NoExn -> return $ MatchTree False msg noValueMessage [runIdentity $ exMatcher Nothing]
         ExpectedExn exn -> return $ let node = match exn exMatcher
-                                    in Node (nodeValue node) msg (display exn) [node]
-        OtherExn exn -> return $ Node False msg (display exn) [runIdentity $ exMatcher Nothing]
+                                    in MatchTree (mtValue node) msg (display exn) [node]
+        OtherExn exn -> return $ MatchTree False msg (display exn) [runIdentity $ exMatcher Nothing]
 
 -- | Runs a pure matcher on the given value and returns the
 -- 'MatchTree'.

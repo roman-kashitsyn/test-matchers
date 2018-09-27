@@ -33,10 +33,10 @@ treeEq (Leaf x) = leafIs (eq x)
 treeEq (Fork l r) = forkIs (treeEq l) (treeEq r)
 
 ok :: Message -> Message -> MatchTree
-ok msg val = Node True msg val []
+ok msg val = MatchTree True msg val []
 
 nok :: Message -> Message -> MatchTree
-nok msg val = Node False msg val []
+nok msg val = MatchTree False msg val []
 
 colorVar :: String
 colorVar = "TEST_MATCHERS_COLOR"
@@ -75,18 +75,18 @@ main = hspec $ do
 
     it "can match pairs" $ do
       match (3, 4) (tuple2 (eq 3) (gt 1)) `shouldBe`
-        Node True "all of" "(3,4)"
-        [ Node True "property fst is" "(3,4)"
+        MatchTree True "all of" "(3,4)"
+        [ MatchTree True "property fst is" "(3,4)"
           [ok "a value equal to 3" "3"]
-        , Node True "property snd is" "(3,4)"
+        , MatchTree True "property snd is" "(3,4)"
           [ok "a value > 1" "4"]
         ]
 
     it "can match Either a b" $ do
       match (Left 3 :: Either Int String) (leftIs (eq 3)) `shouldBe`
-        Node True "prism Left is" "Left 3" [ok "a value equal to 3" "3"]
+        MatchTree True "prism Left is" "Left 3" [ok "a value equal to 3" "3"]
       match (Right "ok" :: Either Int String) (rightIs anything) `shouldBe`
-        Node True "prism Right is" "Right \"ok\"" [ok "anything" "\"ok\""]
+        MatchTree True "prism Right is" "Right \"ok\"" [ok "anything" "\"ok\""]
 
     it "can match list prefixes/suffixes/infixes" $ do
       match [1, 1, 2, 3] (startsWith [1, 1]) `shouldBe`
@@ -116,7 +116,7 @@ main = hspec $ do
 
     it "does not rethrow unmatched exception" $ do
       ((throws (eq DivideByZero)) $ Just (ioError unsupportedOperation)) `shouldReturn`
-        (Node False
+        (MatchTree False
          "exception of type ArithException matches"
          (fromString $ show unsupportedOperation)
          [nok (fromString $ "a value equal to " ++ show DivideByZero) "nothing"])

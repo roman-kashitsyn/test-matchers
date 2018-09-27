@@ -62,7 +62,7 @@ toAnsiStyle style = case style of
 --     ☒ because this subnode failed. ← bad subvalue
 -- @
 renderAsTree :: MatchTree -> Message
-renderAsTree (Node res msg val subnodes) =
+renderAsTree (MatchTree res msg val subnodes) =
   annotate msgStyle (if res then check else cross) <+>
   if null subnodes
   then lineDoc
@@ -84,17 +84,17 @@ renderPath path =
                                , indent 2 $ renderRest rest
                                ]
   where renderReason node =
-          vcat [ hsep [ fill 10 $ "Expected:"
-                      , nodeMessage node
+          vcat [ hsep [ fill 10 "Expected:"
+                      , mtOkMessage node
                       ]
-               , hsep [ fill 10 $ "Got:"
-                      , nodeMatchedValue node
+               , hsep [ fill 10 "Got:"
+                      , mtMatchedValue node
                       ]
                ]
         renderRest = vsep . concatMap toEntry
-        toEntry node = [ hsep ["in" , nodeMessage node]
+        toEntry node = [ hsep ["in" , mtOkMessage node]
                        , indent 3 $ hsep [ "Got:"
-                                         , nodeMatchedValue node
+                                         , mtMatchedValue node
                                          ]
                        ]
 
@@ -107,10 +107,10 @@ arrow = "←"
 -- cause of the failure.
 tryGetTrace :: MatchTree -> Maybe [MatchTree]
 tryGetTrace node
-  | nodeValue node = Nothing
-  | null (nodeSubnodes node) = Just [node]
-  | otherwise = case filter (not . nodeValue) (nodeSubnodes node) of
-                  [e] -> fmap (node:) $ tryGetTrace e
+  | mtValue node = Nothing
+  | null (mtSubnodes node) = Just [node]
+  | otherwise = case filter (not . mtValue) (mtSubnodes node) of
+                  [e] -> (node:) <$> tryGetTrace e
                   _ -> Nothing
 
 -- | Pretty-prints the match tree according to the options provided.
