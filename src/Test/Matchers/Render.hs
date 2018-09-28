@@ -62,13 +62,13 @@ toAnsiStyle style = case style of
 --     ☒ because this subnode failed. ← bad subvalue
 -- @
 renderAsTree :: MatchTree -> Message
-renderAsTree (MatchTree res msg val subnodes) =
+renderAsTree (MatchTree res descr _ val subnodes) =
   annotate msgStyle (if res then check else cross) <+>
   if null subnodes
   then lineDoc
   else vsep [lineDoc, subtreeDoc]
   where msgStyle = if res then Success else Failure
-        lineDoc = hsep [ annotate msgStyle msg
+        lineDoc = hsep [ annotate msgStyle descr
                        , arrow <+> val
                        ]
         subtreeDoc = indent 2 (vsep $ map treeToMessage subnodes)
@@ -85,14 +85,14 @@ renderPath path =
                                ]
   where renderReason node =
           vcat [ hsep [ fill 10 "Expected:"
-                      , mtOkMessage node
+                      , mtDescription node
                       ]
                , hsep [ fill 10 "Got:"
                       , mtMatchedValue node
                       ]
                ]
         renderRest = vsep . concatMap toEntry
-        toEntry node = [ hsep ["in" , mtOkMessage node]
+        toEntry node = [ hsep ["in" , mtDescription node]
                        , indent 3 $ hsep [ "Got:"
                                          , mtMatchedValue node
                                          ]

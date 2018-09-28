@@ -32,11 +32,11 @@ treeEq
 treeEq (Leaf x) = leafIs (eq x)
 treeEq (Fork l r) = forkIs (treeEq l) (treeEq r)
 
-ok :: Message -> Message -> MatchTree
-ok msg val = MatchTree True msg val []
+ok :: Message -> Message -> Message -> MatchTree
+ok msg msg_ val = MatchTree True msg msg_ val []
 
-nok :: Message -> Message -> MatchTree
-nok msg val = MatchTree False msg val []
+nok :: Message -> Message -> Message -> MatchTree
+nok msg msg_ val = MatchTree False msg msg_ val []
 
 colorVar :: String
 colorVar = "TEST_MATCHERS_COLOR"
@@ -55,46 +55,80 @@ main = hspec $ do
   describe "Simple matchers" $ do
 
     it "can match for equality" $ do
-      match 5 (eq 5) `shouldBe` ok "a value equal to 5" "5"
-      match 0 (eq 1) `shouldBe` nok "a value equal to 1" "0"
+      match 5 (eq 5) `shouldBe` ok "a value equal to 5" "a value not equal to 5" "5"
+      match 0 (eq 1) `shouldBe` nok "a value equal to 1" "a value not equal to 1" "0"
 
     it "can match comparable types" $ do
-      match 3 (gt 1) `shouldBe` ok "a value > 1" "3"
-      match 1 (ge 1) `shouldBe` ok "a value ≥ 1" "1"
-      match 3 (ge 1) `shouldBe` ok "a value ≥ 1" "3"
+      match 3 (gt 1) `shouldBe` ok "a value > 1" "a value ≤ 1" "3"
+      match 1 (ge 1) `shouldBe` ok "a value ≥ 1" "a value < 1" "1"
+      match 3 (ge 1) `shouldBe` ok "a value ≥ 1" "a value < 1" "3"
 
-      match 3 (lt 4) `shouldBe` ok "a value < 4" "3"
-      match 3 (le 4) `shouldBe` ok "a value ≤ 4" "3"
-      match 3 (le 3) `shouldBe` ok "a value ≤ 3" "3"
+      match 3 (lt 4) `shouldBe` ok "a value < 4" "a value ≥ 4" "3"
+      match 3 (le 4) `shouldBe` ok "a value ≤ 4" "a value > 4" "3"
+      match 3 (le 3) `shouldBe` ok "a value ≤ 3" "a value > 3" "3"
 
-      match 3 (gt 4) `shouldBe` nok "a value > 4" "3"
-      match 3 (ge 4) `shouldBe` nok "a value ≥ 4" "3"
+      match 3 (gt 4) `shouldBe` nok "a value > 4" "a value ≤ 4" "3"
+      match 3 (ge 4) `shouldBe` nok "a value ≥ 4" "a value < 4" "3"
 
-      match 3 (lt 1) `shouldBe` nok "a value < 1" "3"
-      match 3 (le 1) `shouldBe` nok "a value ≤ 1" "3"
+      match 3 (lt 1) `shouldBe` nok "a value < 1" "a value ≥ 1" "3"
+      match 3 (le 1) `shouldBe` nok "a value ≤ 1" "a value > 1" "3"
 
     it "can match pairs" $ do
       match (3, 4) (tuple2 (eq 3) (gt 1)) `shouldBe`
-        MatchTree True "all of" "(3,4)"
-        [ MatchTree True "property fst is" "(3,4)"
-          [ok "a value equal to 3" "3"]
-        , MatchTree True "property snd is" "(3,4)"
-          [ok "a value > 1" "4"]
+        MatchTree True "all of" "not all of" "(3,4)"
+        [ MatchTree True "property fst is" "property fst is not" "(3,4)"
+          [ok "a value equal to 3" "a value not equal to 3" "3"]
+        , MatchTree True "property snd is" "property snd is not" "(3,4)"
+          [ok "a value > 1" "a value ≤ 1" "4"]
         ]
 
     it "can match Either a b" $ do
       match (Left 3 :: Either Int String) (leftIs (eq 3)) `shouldBe`
-        MatchTree True "prism Left is" "Left 3" [ok "a value equal to 3" "3"]
+        MatchTree True
+        "prism Left is"
+        "prism Left is not"
+        "Left 3" [ok "a value equal to 3" "a value not equal to 3" "3"]
       match (Right "ok" :: Either Int String) (rightIs anything) `shouldBe`
-        MatchTree True "prism Right is" "Right \"ok\"" [ok "anything" "\"ok\""]
+        MatchTree True
+        "prism Right is"
+        "prism Right is not"
+        "Right \"ok\"" [ok "anything" "nothing" "\"ok\""]
 
     it "can match list prefixes/suffixes/infixes" $ do
       match [1, 1, 2, 3] (startsWith [1, 1]) `shouldBe`
-        ok "starts with [1,1]" "[1,1,2,3]"
+        ok "starts with [1,1]" "does not start with [1,1]" "[1,1,2,3]"
       match [1, 1, 2, 3] (endsWith [2, 3]) `shouldBe`
-        ok "ends with [2,3]" "[1,1,2,3]"
+        ok "ends with [2,3]" "does not end with [2,3]" "[1,1,2,3]"
       match [1, 1, 2, 3] (hasInfix [1, 2]) `shouldBe`
-        ok "has infix [1,2]" "[1,1,2,3]"
+        ok "has infix [1,2]" "does not have infix [1,2]" "[1,1,2,3]"
+
+    it "can match lists" $ do
+      match ([] :: [Int])  (elementsAre []) `shouldBe`
+        MatchTree True "has 0 elements" "does not have 0 elements" "[]"
+        [ok "number of elements is 0" "number of elements is not 0" "0"]
+
+      match [] (elementsAre [eq 5]) `shouldBe`
+        MatchTree False "has 1 element" "does not have 1 element" "[]"
+        [ nok
+          "a value equal to 5"
+          "a value not equal to 5"
+          "nothing"
+        , nok
+          "number of elements is 1"
+          "number of elements is not 1"
+          "0"
+        ]
+      match [5, 7] (elementsAre [eq 5]) `shouldBe`
+        MatchTree False "has 1 element" "does not have 1 element" "[5,7]"
+        [ ok "a value equal to 5" "a value not equal to 5" "5"
+        , nok "number of elements is 1" "number of elements is not 1" "2"
+        ]
+      match [5, 7] (elementsAre [eq 5, gt 5]) `shouldBe`
+        MatchTree True "has 2 elements" "does not have 2 elements" "[5,7]"
+        [ ok "a value equal to 5" "a value not equal to 5" "5"
+        , ok "a value > 5" "a value ≤ 5" "7"
+        , ok "number of elements is 2" "number of elements is not 2" "2"
+        ]
 
   describe "Test.HUnit integration" $ do
 
@@ -117,9 +151,13 @@ main = hspec $ do
     it "does not rethrow unmatched exception" $ do
       ((throws (eq DivideByZero)) $ Just (ioError unsupportedOperation)) `shouldReturn`
         (MatchTree False
-         "exception of type ArithException matches"
+         "action throwing ArithException that is"
+         "action not throwing ArithException that is"
          (fromString $ show unsupportedOperation)
-         [nok (fromString $ "a value equal to " ++ show DivideByZero) "nothing"])
+         [nok
+          (fromString $ "a value equal to " ++ show DivideByZero)
+          (fromString $ "a value not equal to " ++ show DivideByZero)
+          "nothing"])
 
   describe "Custom matchers" $ do
     it "can match trees" $ do
