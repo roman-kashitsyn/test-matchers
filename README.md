@@ -1,8 +1,11 @@
+This is not an official Google product.
+
 # Test.Matchers
 
-A simple matcher combinators library for unit-testing. The main point
-of the library is to make the error messages produced by test failure
-as clear and useful as possible. For example, the following expression:
+A simple matcher combinators library for unit-testing.
+
+The main point of the library is to make the error messages produced by test
+failure as clear and useful as possible. For example, the following expression:
 
 ```haskell
 type E = Either String Int
