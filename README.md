@@ -1,3 +1,5 @@
+*This is not an official Google product.*
+
 # Test.Matchers
 
 A simple matcher combinators library for unit-testing heavily inspired
