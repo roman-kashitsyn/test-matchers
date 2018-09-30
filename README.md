@@ -1,29 +1,41 @@
 # Test.Matchers
 
-A simple matcher combinators library for unit-testing. The main point
-of the library is to make the error messages produced by test failure
-as clear and useful as possible. For example, the following expression:
+A simple matcher combinators library for unit-testing heavily inspired
+by [GMock
+Matchers](https://github.com/google/googletest/blob/master/googlemock/docs/CheatSheet.md#matchers).
+The main purpose of the library is to make the error messages produced
+by test failures clearer and more useful.
+
+It easily integrates with any test framework capable of executing
+HUnit assertions (e.g. [hspec](https://hspec.github.io) or
+[tasty](https://github.com/feuerbach/tasty)).
+
+Short example:
 
 ```haskell
-type E = Either String Int
+div :: Int -> Int -> Either String Int
+div _ 0 = Left "Division by zero"
+div x y = Right (x `quot` y)
 
-(Left "The length argument is out of bounds" :: E, Right 5 :: E)
-  `shouldMatch`
-  tuple2 (leftIs $ hasInfix "size") (rightIs $ gt 0)
+-- This test passes
+div 5 0 `shouldMatch` (leftIs $ hasInfix "zero")
+
+-- This test fails
+div 5 0 `shouldMatch` (rightIs $ eq 0)
 ```
 
-produces the following error message:
+
+The failed test display the following error message:
 
 ```
-☒ all of ← (Left "The length argument is out of bounds",Right 5)
-  ☒ property fst is ← (Left "The length argument is out of bounds",Right 5)
-    ☒ prism Left is ← Left "The length argument is out of bounds"
-      ☒ has infix "size" ← "The length argument is out of bounds"
-  ☑ property snd is ← (Left "The length argument is out of bounds",Right 5)
-    ☑ prism Right is ← Right 5
-      ☑ a value > 0 ← 5
+☒ prism Right is ← Left "Division by zero"
+  Expected:  a value equal to 0
+  Got:       nothing
 ```
 
-The whole comparison is represented as a tree, and it's pretty easy to
-spot paths which led to the test failure and observe the values
-expected and received by individual predicates.
+You can also match exceptions:
+
+```haskell
+myAction `shouldMatchIO`
+  (throws $ property "ioe_type" ioe_type $ eq UnsupportedOperation)
+```
