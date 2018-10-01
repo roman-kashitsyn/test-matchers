@@ -1,5 +1,3 @@
-*This is not an official Google product.*
-
 # Test.Matchers
 
 A simple matcher combinators library for unit-testing heavily inspired
@@ -41,3 +39,7 @@ You can also match exceptions:
 myAction `shouldMatchIO`
   (throws $ property "ioe_type" ioe_type $ eq UnsupportedOperation)
 ```
+
+# Disclaimer
+
+This is not an official Google product.
