@@ -2,6 +2,7 @@
 import Test.Hspec
 
 import Data.String (IsString(..))
+import Data.List (intercalate)
 import GHC.IO.Exception
 import Control.Exception
 import Test.Matchers
@@ -159,22 +160,20 @@ main = hspec $ do
           (fromString $ "a value not equal to " ++ show DivideByZero)
           "nothing"])
 
+  describe "README examples" $ withNoColor $ do
+    let div :: Int -> Int -> Either String Int
+        div _ 0 = Left "Division by zero"
+        div x y = Right (x `quot` y)
+    it "works for positive case" $ do
+      div 5 0 `shouldMatch` (leftIs $ hasInfix "zero")
+    it "works for negative case" $ do
+      div 5 0 `shouldMatch` (rightIs $ eq 0)
+        `failureMessageIs`
+        (intercalate "\n" [ "✘ prism Right is ← Left \"Division by zero\""
+                          , "  ✘ a value equal to 0 ← nothing"
+                          ])
+
   describe "Custom matchers" $ do
     it "can match trees" $ do
       let t = (Fork (Fork (Leaf 5) (Leaf 7)) (Leaf 10))
       t `shouldMatch` treeEq t
-
-  describe "Formats matching trees properly" $ withNoColor $ do
-    let t  = (Fork (Leaf 1) (Leaf 3))
-    let t' = (Fork (Leaf 1) (Leaf 2))
-    it "prints trace when there's just one failure" $ do
-      t `shouldMatch` treeEq t'
-        `failureMessageIs`
-        (unlines
-         [ "Expected:  a value equal to 2"
-         , "Got:       3"
-         , "  in prism Leaf is"
-         , "     Got: " ++ show (Leaf 3)
-         , "  in all of"
-         , "     Got: " ++ show (Leaf 1, Leaf 3)
-         , "  in prism Fork is"] ++ "     Got: " ++ show t)

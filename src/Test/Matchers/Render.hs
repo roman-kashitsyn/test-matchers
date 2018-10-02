@@ -52,9 +52,7 @@ data PPOptions
 -- | Renders the match tree as a document.  The function tries to be
 -- pick the most readable format to represent the failure.
 treeToMessage :: MatchTree -> Message
-treeToMessage tree = case tryGetTrace tree of
-                       Nothing  -> renderAsTree tree
-                       (Just path) -> renderPath path
+treeToMessage = renderAsTree
 
 -- | Converts generic message styles into styles suitable for ANSI
 -- terminal.
@@ -85,47 +83,12 @@ renderAsTree (MatchTree res descr _ val subnodes) =
         lineDoc = hsep [ annotate msgStyle descr
                        , arrow <+> val
                        ]
-        subtreeDoc = indent 2 (vsep $ map treeToMessage subnodes)
-
--- | Renders the list of tree nodes as a stack trace.
-renderPath :: [MatchTree] -> Message
-renderPath path =
-  case reverse path of
-    [] -> error "Internal error: empty path"
-    (reason:rest) -> if null rest
-                     then renderReason reason
-                     else vsep [ renderReason reason
-                               , indent 2 $ renderRest rest
-                               ]
-  where renderReason node =
-          vcat [ hsep [ fill 10 "Expected:"
-                      , mtDescription node
-                      ]
-               , hsep [ fill 10 "Got:"
-                      , mtMatchedValue node
-                      ]
-               ]
-        renderRest = vsep . concatMap toEntry
-        toEntry node = [ hsep ["in" , mtDescription node]
-                       , indent 3 $ hsep [ "Got:"
-                                         , mtMatchedValue node
-                                         ]
-                       ]
+        subtreeDoc = indent 2 (vsep $ map renderAsTree subnodes)
 
 check, cross, arrow :: Message
-check = "☑"
-cross = "☒"
+check = "✔"
+cross = "✘"
 arrow = "←"
-
--- | Tries to find a single path in the tree that leads to the root
--- cause of the failure.
-tryGetTrace :: MatchTree -> Maybe [MatchTree]
-tryGetTrace node
-  | mtValue node = Nothing
-  | null (mtSubnodes node) = Just [node]
-  | otherwise = case filter (not . mtValue) (mtSubnodes node) of
-                  [e] -> (node:) <$> tryGetTrace e
-                  _ -> Nothing
 
 -- | Pretty-prints the match tree according to the options provided.
 prettyPrint
