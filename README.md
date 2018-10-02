@@ -26,10 +26,8 @@ div 5 0 `shouldMatch` (rightIs $ eq 0)
 
 The failed test display the following error message:
 
-<code><pre>
-<span style='color:red;'>✘ prism Right is</span> ← <em>Left "Division by zero"</em>
-<span style='color:red;'>✘ a value equal to <em>0</em></span> ← nothing
-</pre></code>
+<code><pre><span>✘ prism Right is</span> ← <em>Left "Division by zero"</em>
+  <span>✘ a value equal to <em>0</em></span> ← nothing</pre></code>
 
 You can also match exceptions:
 
