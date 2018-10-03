@@ -131,6 +131,21 @@ main = hspec $ do
         , ok "number of elements is 2" "number of elements is not 2" "2"
         ]
 
+  describe "Container matching" $ do
+    it "can check if container is empty" $ do
+      match (Nothing :: Maybe Int) isEmpty `shouldBe` ok "is empty" "is not empty" "Nothing"
+      match ([] :: [Int]) isEmpty `shouldBe` ok "is empty" "is not empty" "[]"
+      match (Just 1) isEmpty `shouldBe` nok "is empty" "is not empty" "Just 1"
+      match [1,2] isEmpty `shouldBe` nok "is empty" "is not empty" "[1,2]"
+
+    it "can check the length of a container" $ do
+      match (Just 1) (lengthIs $ gt 0) `shouldBe`
+        MatchTree True "property length is" "property length is not" "Just 1"
+        [ ok "a value > 0" "a value ≤ 0" "1" ]
+      match [1,2,3] (lengthIs $ eq 4) `shouldBe`
+        MatchTree False "property length is" "property length is not" "[1,2,3]"
+        [ nok "a value equal to 4" "a value not equal to 4" "3" ]
+
   describe "Test.HUnit integration" $ do
 
     it "can use `shouldMatch` for assertions" $ do
@@ -145,7 +160,7 @@ main = hspec $ do
       (ioError unsupportedOperation) `shouldMatchIO`
         (throws $ property "ioe_type" ioe_type (eq UnsupportedOperation))
 
-    it "Can match any exception" $ do
+    it "can match any exception" $ do
       ioError unsupportedOperation `shouldMatchIO`
         throws (anything :: Matcher SomeException)
 

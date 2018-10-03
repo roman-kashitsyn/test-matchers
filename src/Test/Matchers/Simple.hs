@@ -55,6 +55,7 @@ module Test.Matchers.Simple
 
   -- * Matchers for sequences
   , isEmpty
+  , lengthIs
   , elementsAre
   , startsWith
   , endsWith
@@ -314,6 +315,13 @@ orElse l r = oneOf $ matchers [l, r]
 -- | Checks that the container has no values.
 isEmpty :: (Show (t a), Foldable t, Applicative f) => MatcherF f (t a)
 isEmpty = simpleMatcher null "is empty" "is not empty"
+
+-- | Checks that container length satisfies the given matcher.
+lengthIs
+  :: (Show (t a), Foldable t, Applicative f)
+  => MatcherF f Int -- ^ Matcher for the container size.
+  -> MatcherF f (t a)
+lengthIs = property "length" length
 
 -- | Checks that elements of the container are matched by the matchers
 -- exactly. The number of elements in the container should match the
