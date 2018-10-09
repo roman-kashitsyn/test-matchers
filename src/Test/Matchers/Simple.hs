@@ -35,8 +35,7 @@ module Test.Matchers.Simple
   , MatchTree(..)
   , Direction(..)
 
-  , simpleMatcher
-  , aggregateMatcher
+  , predicate
 
   -- * Matchers for 'Eq' and 'Ord' types
   , eq
@@ -204,11 +203,11 @@ inputToDoc :: (Show a) => Maybe a -> Message
 inputToDoc = maybe noValueMessage display
 
 -- | Makes a matcher from a predicate and it's description.
-simpleMatcher :: (Show a, Applicative f)
+predicate :: (Show a, Applicative f)
               => (a -> Bool) -- ^ Predicate to use for matching
               -> (Message, Message) -- ^ Messages describing this predicate and it's inverse.
               -> MatcherF f a
-simpleMatcher predicate descr dir v =
+predicate predicate descr dir v =
   case v of
     Nothing -> pure $ MatchTree False msg noValueMessage []
     Just fa -> (\x -> MatchTree (applyDirection dir (predicate x)) msg (inputToDoc (Just x)) []) <$> fa
@@ -223,25 +222,19 @@ aggregateWith :: (Show a, Applicative f)
 aggregateWith aggr descr matcherSet dir value =
   let subnodesF = matchF matcherSet dir value
       msgF = inputToDocF value
-  in liftA2 (\xs m -> MatchTree (applyDirection dir (aggr $ map mtValue xs)) (pickDescription dir descr) m xs) subnodesF msgF
+  in liftA2 (\xs m -> MatchTree
+                      (applyDirection dir (aggr $ map mtValue xs))
+                      (pickDescription dir descr)
+                      m xs)
+     subnodesF msgF
 
--- | Makes a matcher that aggregates results of submatchers.
-aggregateMatcher :: (Show a, Applicative f)
-                 => ([Bool] -> Bool) -- ^ Subnode result aggregation function.
-                 -> (Message, Message) -- ^ Message describing this matcher and its inverse.
-                 -> [MatcherF f a]   -- ^ Matchers to aggregate.
-                 -> MatcherF f a
-aggregateMatcher aggF descr ms dir = doMatch
-  where
-    doMatch x = mkAgg <$> inputToDocF x <*> sequenceA (map (\m -> m Positive x) ms)
-    mkAgg val nodes = MatchTree (applyDirection dir (aggF $ map mtValue nodes)) (pickDescription dir descr) val nodes
 
 -- | Matcher that succeeds if the argument equals to the specified
 -- value.
 eq :: (Eq a, Show a, Applicative f)
    => a          -- ^ The value that the argument must be equal to
    -> MatcherF f a
-eq value = simpleMatcher (== value) (descr, descr_)
+eq value = predicate (== value) (descr, descr_)
   where descr  = hsep ["is", "a", "value", "equal", "to", display value]
         descr_ = hsep ["is", "a", "value", "not", "equal", "to", display value]
 
@@ -281,13 +274,13 @@ cmpSatisfies
   -> String -- ^ Comparison symbol describing the inverse of the matcher.
   -> a -- ^ Value to compare against.
   -> MatcherF f a
-cmpSatisfies p symbol symbol_ bound = simpleMatcher (\x -> p $ compare x bound) (descr, descr_)
+cmpSatisfies p symbol symbol_ bound = predicate (\x -> p $ compare x bound) (descr, descr_)
   where descr  = hsep ["is", "a", "value", pretty symbol,  display bound]
         descr_ = hsep ["is", "a", "value", pretty symbol_, display bound]
 
 -- | Matcher that always succeeds.
 anything :: (Show a, Applicative f) => MatcherF f a
-anything = simpleMatcher (const True) ("anything", "nothing")
+anything = predicate (const True) ("anything", "nothing")
 
 -- | Constructs a matcher set from a 'Foldable' container containing
 -- matchers.
@@ -333,7 +326,7 @@ orElse l r = oneOf $ matchers [l, r]
 
 -- | Checks that the container has no values.
 isEmpty :: (Show (t a), Foldable t, Applicative f) => MatcherF f (t a)
-isEmpty = simpleMatcher null ("is empty", "is not empty")
+isEmpty = predicate null ("is empty", "is not empty")
 
 -- | Checks that container length satisfies the given matcher.
 lengthIs
@@ -377,7 +370,7 @@ elementsAre matchers dir = maybe emptyTree mkTree
 startsWith :: (Applicative f, Show a, Eq a)
            => [a]            -- ^ The prefix the list is expected to have.
            -> MatcherF f [a]
-startsWith xs = simpleMatcher (xs `isPrefixOf`)
+startsWith xs = predicate (xs `isPrefixOf`)
                 ( (hsep ["starts", "with", display xs])
                 , (hsep ["does", "not", "start", "with", display xs]))
 
@@ -386,7 +379,7 @@ startsWith xs = simpleMatcher (xs `isPrefixOf`)
 endsWith :: (Applicative f, Show a, Eq a)
            => [a]            -- ^ The suffix the list is expected to have.
            -> MatcherF f [a]
-endsWith xs = simpleMatcher (xs `isSuffixOf`)
+endsWith xs = predicate (xs `isSuffixOf`)
               ( (hsep ["ends", "with", display xs])
               , (hsep ["does", "not", "end", "with", display xs]))
 
@@ -394,7 +387,7 @@ endsWith xs = simpleMatcher (xs `isSuffixOf`)
 hasInfix :: (Applicative f, Show a, Eq a)
            => [a]            -- ^ The infix the list is expected to have.
            -> MatcherF f [a]
-hasInfix xs = simpleMatcher (xs `isInfixOf`)
+hasInfix xs = predicate (xs `isInfixOf`)
               ( (hsep ["has", "infix", display xs])
               , (hsep ["does", "not", "have", "infix", display xs]))
 
@@ -436,7 +429,7 @@ property :: (Show a, Show s, Applicative f)
          -> (s -> a)     -- ^ The projection from a structure 's' to it's substructure 'a'.
          -> MatcherF f a -- ^ Matcher of the substructure 'a'.
          -> MatcherF f s
-property name proj m = aggregateMatcher and (descr, descr) [contramap proj m]
+property name proj m = aggregateWith and (descr, descr) $ matcher (contramap proj m)
   where descr  = hsep ["property", pretty name]
 
 -- | Builds a matcher for one alternative of a sum type given matcher for a
