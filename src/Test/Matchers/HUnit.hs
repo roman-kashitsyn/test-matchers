@@ -73,4 +73,4 @@ shouldMatch x m = treeToAssertion (match x m)
 shouldMatchIO :: IO a          -- ^ an action to match
               -> MatcherF IO a -- ^ a matcher of the action
               -> Assertion
-shouldMatchIO action matcher = matcher (Just action) >>= treeToAssertion
+shouldMatchIO action matcher = runMatcher matcher action >>= treeToAssertion

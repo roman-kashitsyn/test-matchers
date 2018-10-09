@@ -75,7 +75,7 @@ toAnsiStyle style = case style of
 --     ☒ because this subnode failed. ← bad subvalue
 -- @
 renderAsTree :: MatchTree -> Message
-renderAsTree (MatchTree res descr _ val subnodes) =
+renderAsTree (MatchTree res descr val subnodes) =
   annotate msgStyle (if res then check else cross) <+>
   if null subnodes
   then lineDoc
