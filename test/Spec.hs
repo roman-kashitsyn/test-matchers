@@ -89,6 +89,15 @@ main = hspec $ do
       match 3 (lt 1) `shouldBe` nok "is a value < 1" "3"
       match 3 (le 1) `shouldBe` nok "is a value ≤ 1" "3"
 
+    it "can match floats" $ do
+      let almost1 = (sum $ replicate 10 0.1) :: Double
+      almost1 `shouldNotBe` 1.0
+      almost1 `shouldMatch` floatAlmostEq 1.0
+      almost1 `shouldMatch` inverseOf (floatAlmostEq 1.0000000000001)
+      1.0 `shouldMatch` floatAlmostEq almost1
+      (- almost1) `shouldMatch` (floatAlmostEq (-1.0))
+      (- almost1) `shouldMatch` inverseOf (floatAlmostEq 1.0)
+
     it "can match pairs" $ do
       match (3, 4) (tuple2 (eq 3) (gt 1)) `shouldBe`
         MatchTree True "all of" "(3,4)"

@@ -39,6 +39,7 @@ module Test.Matchers.Simple
 
   -- * Matchers for 'Eq' and 'Ord' types
   , eq
+  , floatAlmostEq
   , lt
   , le
   , gt
@@ -237,6 +238,32 @@ eq :: (Eq a, Show a, Applicative f)
 eq value = predicate (== value) (descr, descr_)
   where descr  = hsep ["is", "a", "value", "equal", "to", display value]
         descr_ = hsep ["is", "a", "value", "not", "equal", "to", display value]
+
+-- | Matchers that succeeds if the argument which is a floating point
+-- number is relatively close to the specified value.
+--
+-- Note that NaNs are not considered equal.
+--
+-- See https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
+floatAlmostEq
+  :: (RealFloat a, Show a, Applicative f)
+  => a -- ^ The value that the argument must be almost equal to.
+  -> MatcherF f a
+floatAlmostEq value = predicate almostEq (descr, descr_)
+  where
+    -- ULP-based comparison, see the link above for details.
+    almostEq x = signum value == signum x
+                 && diffULP value x <= maxULPDiff
+    -- Computes the number of floats between y and z
+    diffULP y z = let (by, ey) = decodeFloat y
+                      (bz, ez) = decodeFloat z
+                      radix = floatRadix y
+                  in abs $ if ey >= ez
+                           then by * (radix ^ (ey - ez)) - bz
+                           else bz * (radix ^ (ez - ey)) - by
+    maxULPDiff = 4
+    descr  = hsep ["is", "a", "value", "almost", "equal", "to", display value]
+    descr_ = hsep ["is", "a", "value", "not", "equal", "to", display value]
 
 -- | Mathcer that succeeds if the argument is /greater than/ the
 -- specified value.
