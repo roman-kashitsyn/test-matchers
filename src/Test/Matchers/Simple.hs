@@ -39,11 +39,14 @@ module Test.Matchers.Simple
 
   -- * Matchers for 'Eq' and 'Ord' types
   , eq
-  , floatAlmostEq
   , lt
   , le
   , gt
   , ge
+
+  -- * Matchers for numeric types
+  , numberNear
+  , floatApproxEq
 
   -- * Matchers combinators
   , MatcherSetF
@@ -78,6 +81,7 @@ module Test.Matchers.Simple
   -- * Executing matchers
   , runMatcher
   , match
+  , matches
 
   -- * Operators
   , (&.)
@@ -239,20 +243,38 @@ eq value = predicate (== value) (descr, descr_)
   where descr  = hsep ["is", "a", "value", "equal", "to", display value]
         descr_ = hsep ["is", "a", "value", "not", "equal", "to", display value]
 
+-- | Matcher that succeeds if the argument (which is a number) is not
+-- further than the specified absolute error from the given value.
+--
+-- Note that NaNs are considered not equal, not close and not far.
+numberNear
+  :: (Num a, Ord a, Show a, Applicative f)
+  => a -- ^ The maximum absolute error.
+  -> a -- ^ The value argument of the matcher must be close to.
+  -> MatcherF f a
+numberNear absError value = predicate (\x -> abs (value - x) <= absError)
+                           (descr, descr_)
+  where descr  = hsep ["is", "not", "further", "than", display absError
+                      , "from", display value]
+        descr_ = hsep ["is", "further", "than", display absError
+                      , "from", display value]
+
 -- | Matchers that succeeds if the argument which is a floating point
 -- number is relatively close to the specified value.
+--
+-- If you match against zero, consider using 'floatNear' instead.
 --
 -- Note that NaNs are not considered equal.
 --
 -- See https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
-floatAlmostEq
+floatApproxEq
   :: (RealFloat a, Show a, Applicative f)
   => a -- ^ The value that the argument must be almost equal to.
   -> MatcherF f a
-floatAlmostEq value = predicate almostEq (descr, descr_)
+floatApproxEq value = predicate approxEq (descr, descr_)
   where
     -- ULP-based comparison, see the link above for details.
-    almostEq x = signum value == signum x
+    approxEq x = signum value == signum x
                  && diffULP value x <= maxULPDiff
     -- Computes the number of floats between y and z
     diffULP y z = let (by, ey) = decodeFloat y
@@ -262,7 +284,7 @@ floatAlmostEq value = predicate almostEq (descr, descr_)
                            then by * (radix ^ (ey - ez)) - bz
                            else bz * (radix ^ (ez - ey)) - by
     maxULPDiff = 4
-    descr  = hsep ["is", "a", "value", "almost", "equal", "to", display value]
+    descr  = hsep ["is", "a", "value", "approx.", "equal", "to", display value]
     descr_ = hsep ["is", "a", "value", "not", "equal", "to", display value]
 
 -- | Mathcer that succeeds if the argument is /greater than/ the
@@ -338,7 +360,7 @@ oneOf = aggregateWith or ("one of", "none of")
 --
 -- prop> forall m. inverseOf (inverseOf m) == m
 -- prop> forall x m. x matches m ⇒ not (x matches (inverseOf m))
-inverseOf :: (Show a, Applicative f)
+inverseOf :: (Applicative f)
            => MatcherF f a -- ^ The matcher to inverse.
            -> MatcherF f a
 inverseOf m d = m (flipDirection d)

@@ -28,7 +28,9 @@ frameworks, e.g. hspec or tasty.
 -}
 module Test.Matchers.HUnit
   ( shouldMatch
+  , shouldNotMatch
   , shouldMatchIO
+  , shouldNotMatchIO
   ) where
 
 import Test.Matchers.Simple
@@ -59,18 +61,35 @@ treeToAssertion tree = unless (mtValue tree) $ do
 --
 -- > testCase = TestCase (fib 5 `shouldMatch` eq 5)
 --
-shouldMatch :: (Show a)
-            => a          -- ^ a value to match
-            -> Matcher a  -- ^ matcher to run
-            -> Assertion
+shouldMatch
+  :: (Show a)
+  => a -- ^ The value that should pass the test.
+  -> Matcher a  -- ^ The matcher to run.
+  -> Assertion
 shouldMatch x m = treeToAssertion (match x m)
+
+-- | The complement to 'shouldMatch'.
+shouldNotMatch
+  :: (Show a)
+  => a -- ^ The value that should fail the test.
+  -> Matcher a -- ^ The matcher to run.
+  -> Assertion
+shouldNotMatch x m = shouldMatch x (inverseOf m)
 
 -- | A variant of 'shouldMatch' that matches an IO action instead of a
 -- pure value.
 --
 -- > readNonExistingFile `shouldMatchIO` throws (anything :: Matcher IOException)
 -- 
-shouldMatchIO :: IO a          -- ^ an action to match
-              -> MatcherF IO a -- ^ a matcher of the action
-              -> Assertion
+shouldMatchIO
+  :: IO a -- ^ The action that should pass the test.
+  -> MatcherF IO a -- ^ The matcher to run.
+  -> Assertion
 shouldMatchIO action matcher = runMatcher matcher action >>= treeToAssertion
+
+-- | The complement to 'shouldMatchIO'.
+shouldNotMatchIO
+  :: IO a -- ^ The action that should fail the test.
+  -> MatcherF IO a -- ^ The matcher to run.
+  -> Assertion
+shouldNotMatchIO action matcher = shouldNotMatchIO action (inverseOf matcher)
