@@ -68,7 +68,7 @@ shouldMatch
   -> Assertion
 shouldMatch x m = treeToAssertion (match x m)
 
--- | The complement to 'shouldMatch'.
+-- | The complement of 'shouldMatch'.
 shouldNotMatch
   :: (Show a)
   => a -- ^ The value that should fail the test.
@@ -87,7 +87,7 @@ shouldMatchIO
   -> Assertion
 shouldMatchIO action matcher = runMatcher matcher action >>= treeToAssertion
 
--- | The complement to 'shouldMatchIO'.
+-- | The complement of 'shouldMatchIO'.
 shouldNotMatchIO
   :: IO a -- ^ The action that should fail the test.
   -> MatcherF IO a -- ^ The matcher to run.

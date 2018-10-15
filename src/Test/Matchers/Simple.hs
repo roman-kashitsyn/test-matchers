@@ -162,7 +162,7 @@ type Matcher a    = MatcherF Identity a
 -- | Should the fancy colors be used when pretty-printing mismatches.
 data ColorMode = Color | NoColor
 
--- | The result of a matcher invokation.
+-- | The result of a matcher invocation.
 data MatchTree
   = MatchTree
     { mtValue          :: !Bool -- ^ Whether the match was successful.
