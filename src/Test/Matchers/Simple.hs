@@ -39,6 +39,7 @@ module Test.Matchers.Simple
 
   -- * Matchers for 'Eq' and 'Ord' types
   , eq
+  , ne
   , lt
   , le
   , gt
@@ -236,12 +237,22 @@ aggregateWith aggr descr matcherSet dir value =
 
 -- | Matcher that succeeds if the argument equals to the specified
 -- value.
-eq :: (Eq a, Show a, Applicative f)
-   => a          -- ^ The value that the argument must be equal to
-   -> MatcherF f a
+eq
+  :: (Eq a, Show a, Applicative f)
+  => a -- ^ The value that the argument must be equal to
+  -> MatcherF f a
 eq value = predicate (== value) (descr, descr_)
   where descr  = hsep ["is", "a", "value", "equal", "to", display value]
         descr_ = hsep ["is", "a", "value", "not", "equal", "to", display value]
+
+-- | Matcher that succeeds if the argument is not equal to the specified value.
+--
+-- This matcher is the complement of 'eq'.
+ne
+  :: (Eq a, Show a, Applicative f)
+  => a -- ^ The value that the argument must be not equal to.
+  -> MatcherF f a
+ne = inverseOf . eq        
 
 -- | Matcher that succeeds if the argument (which is a number) is not
 -- further than the specified absolute error from the given value.

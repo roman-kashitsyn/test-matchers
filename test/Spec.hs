@@ -73,6 +73,7 @@ main = hspec $ do
     it "can match for equality" $ do
       match 5 (eq 5) `shouldBe` ok "is a value equal to 5" "5"
       match 0 (eq 1) `shouldBe` nok "is a value equal to 1" "0"
+      match 0 (ne 1) `shouldBe` ok "is a value not equal to 1" "0"
 
     it "can match comparable types" $ do
       match 3 (gt 1) `shouldBe` ok "is a value > 1" "3"
