@@ -61,18 +61,18 @@ toAnsiStyle :: Style -> AnsiStyle
 toAnsiStyle style = case style of
                       Plain -> mempty
                       Value -> PPT.italicized
-                      Success -> PPT.bold <> PPT.color PPT.Red
-                      Failure -> PPT.colorDull PPT.Green
+                      Success -> PPT.bold <> PPT.color PPT.Green
+                      Failure -> PPT.colorDull PPT.Red
 
 -- | Renders the match tree as a textual tree: nested matchers have
 -- higher indentation and the color indicates success or failure of
 -- the matcher, i.e.
 --
 -- @
--- ☒ the root ← root
---   ☑ this node is OK ← good value
---   ☒ this node failed :( ← bad value
---     ☒ because this subnode failed. ← bad subvalue
+-- ✘ the root ← root
+--   ✔ this node is OK ← good value
+--   ✘ this node failed :( ← bad value
+--     ✘ because this subnode failed. ← bad subvalue
 -- @
 renderAsTree :: MatchTree -> Message
 renderAsTree (MatchTree res descr val subnodes) =
