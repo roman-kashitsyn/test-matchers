@@ -61,8 +61,9 @@ toAnsiStyle :: Style -> AnsiStyle
 toAnsiStyle style = case style of
                       Plain -> mempty
                       Value -> PPT.italicized
-                      Success -> PPT.bold <> PPT.color PPT.Green
-                      Failure -> PPT.colorDull PPT.Red
+                      Symbol -> PPT.italicized
+                      Success -> PPT.colorDull PPT.Green
+                      Failure -> PPT.bold <> PPT.colorDull PPT.Red
 
 -- | Renders the match tree as a textual tree: nested matchers have
 -- higher indentation and the color indicates success or failure of

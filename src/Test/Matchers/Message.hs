@@ -30,6 +30,7 @@ module Test.Matchers.Message
   ( Message
   , Style(..)
   , display
+  , symbol
   , (<+>)
   , (<>)
   , annotate
@@ -47,15 +48,21 @@ import Data.Text.Prettyprint.Doc
 -- | Abstract styles used by the library. The actual representation is
 -- controlled by the rendering.
 data Style
-  = Plain -- ^ Default style of the output
-  | Value -- ^ The style to use for printing values having Show instances
-  | Success -- ^ The style to use for successfully completed matchers
-  | Failure -- ^ The style to use for failed matchers
+  = Plain -- ^ Default style of the output.
+  | Value -- ^ The style to use for printing values having a Show instance.
+  | Symbol -- ^ The style to use for printing symbols.
+  | Success -- ^ The style to use for successfully completed matchers.
+  | Failure -- ^ The style to use for failed matchers.
   deriving (Eq, Show, Enum, Bounded)
 
 -- | Message is a pretty-printable document annotated with style.
 type Message = Doc Style
 
--- | Converts given value to message and annotates it properly.
+-- | Converts given value to a message and annotates it properly.
 display :: (Show a) => a -> Message
 display = annotate Value . pretty . show
+
+-- | Encodes the given value as a symbol, typically the name of the
+-- constructor or function.
+symbol :: (Show a) => a -> Message
+symbol = annotate Symbol . pretty . show

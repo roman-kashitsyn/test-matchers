@@ -490,7 +490,7 @@ property :: (Show a, Show s, Applicative f)
          -> MatcherF f a -- ^ Matcher of the substructure 'a'.
          -> MatcherF f s
 property name proj m = aggregateWith and (descr, descr) $ matcher (contramap proj m)
-  where descr  = hsep ["property", pretty name]
+  where descr  = hsep ["property", symbol name]
 
 -- | Builds a matcher for one alternative of a sum type given matcher for a
 -- prism projection.
@@ -507,7 +507,7 @@ prism name p m dir v =
       <$> m dir (sequenceA $ fmap p fs)
       <*> fs
   where
-    descr  = hsep ["prism", pretty name]
+    descr  = hsep ["prism", symbol name]
 
 -- | Represents a result of IO action execution.
 data ActionOutcome e
@@ -530,7 +530,7 @@ throws :: forall e a. (Exception e)
        => Matcher e  -- ^ Matcher for the exception value.
        -> MatcherF IO a
 throws exMatcher dir maybeAction = do
-  let excName = display $ typeOf (undefined :: e)
+  let excName = symbol $ typeOf (undefined :: e)
       descr  = hsep ["action", "throwing", excName, "that"]
       descr_  = hsep ["action", "not", "throwing", excName, "that"]
       d = pickDescription dir (descr, descr_)
