@@ -108,20 +108,20 @@ main = hspec $ do
     it "can match pairs" $ do
       match (3, 4) (tuple2 (eq 3) (gt 1)) `shouldBe`
         MatchTree True "all of" "(3,4)"
-        [ MatchTree True "property fst" "(3,4)"
+        [ MatchTree True "property \"fst\"" "(3,4)"
           [ok "is a value equal to 3" "3"]
-        , MatchTree True "property snd" "(3,4)"
+        , MatchTree True "property \"snd\"" "(3,4)"
           [ok "is a value > 1" "4"]
         ]
 
     it "can match Either a b" $ do
       match (Left 3 :: Either Int String) (leftIs (eq 3)) `shouldBe`
         MatchTree True
-        "prism Left"
+        "prism \"Left\""
         "Left 3" [ok "is a value equal to 3" "3"]
       match (Right "ok" :: Either Int String) (rightIs anything) `shouldBe`
         MatchTree True
-        "prism Right"
+        "prism \"Right\""
         "Right \"ok\"" [ok "anything" "\"ok\""]
 
     it "can match list prefixes/suffixes/infixes" $ do
@@ -160,13 +160,15 @@ main = hspec $ do
       match ([] :: [Int]) isEmpty `shouldBe` ok "is empty" "[]"
       match (Just 1) isEmpty `shouldBe` nok "is empty" "Just 1"
       match [1,2] isEmpty `shouldBe` nok "is empty" "[1,2]"
+      match [1] isNotEmpty `shouldBe` ok "is not empty" "[1]"
+      match ([] :: [Int]) isNotEmpty `shouldBe` nok "is not empty" "[]"
 
     it "can check the length of a container" $ do
       match (Just 1) (lengthIs $ gt 0) `shouldBe`
-        MatchTree True "property length" "Just 1"
+        MatchTree True "property \"length\"" "Just 1"
         [ ok "is a value > 0" "1" ]
       match [1,2,3] (lengthIs $ eq 4) `shouldBe`
-        MatchTree False "property length" "[1,2,3]"
+        MatchTree False "property \"length\"" "[1,2,3]"
         [ nok "is a value equal to 4" "3" ]
 
   describe "Test.HUnit integration" $ do
@@ -205,7 +207,7 @@ main = hspec $ do
     it "works for negative case" $ do
       div 5 0 `shouldMatch` (rightIs $ eq 0)
         `failureMessageIs`
-        (intercalate "\n" [ "✘ prism Right ← Left \"Division by zero\""
+        (intercalate "\n" [ "✘ prism \"Right\" ← Left \"Division by zero\""
                           , "  ✘ is a value equal to 0 ← nothing"
                           ])
 

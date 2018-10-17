@@ -62,6 +62,7 @@ module Test.Matchers.Simple
 
   -- * Matchers for sequences
   , isEmpty
+  , isNotEmpty
   , lengthIs
   , elementsAre
   , startsWith
@@ -371,9 +372,9 @@ oneOf = aggregateWith or ("one of", "none of")
 --
 -- prop> forall m. inverseOf (inverseOf m) == m
 -- prop> forall x m. x matches m ⇒ not (x matches (inverseOf m))
-inverseOf :: (Applicative f)
-           => MatcherF f a -- ^ The matcher to inverse.
-           -> MatcherF f a
+inverseOf
+  :: MatcherF f a -- ^ The matcher to inverse.
+  -> MatcherF f a
 inverseOf m d = m (flipDirection d)
 
 -- | A version of 'allOf' specialized for two submatchers.
@@ -385,8 +386,17 @@ orElse :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f 
 orElse l r = oneOf $ matchers [l, r]
 
 -- | Checks that the container has no values.
-isEmpty :: (Show (t a), Foldable t, Applicative f) => MatcherF f (t a)
+-- The inverse is 'isNotEmpty'.
+isEmpty
+  :: (Show (t a), Foldable t, Applicative f)
+  => MatcherF f (t a)
 isEmpty = predicate null ("is empty", "is not empty")
+
+-- | The complement of 'isEmpty'.
+isNotEmpty
+  :: (Show (t a), Foldable t, Applicative f)
+  => MatcherF f (t a)
+isNotEmpty = inverseOf isEmpty
 
 -- | Checks that container length satisfies the given matcher.
 lengthIs
