@@ -39,7 +39,7 @@ forkIs
   -> MatcherF f (Tree a)
 forkIs leftM rightM = prism "Fork"
   (\t -> case t of Fork l' r' -> Just (l' &. r'); _ -> Nothing)
-  (allOf $ matcher leftM &> matcher rightM)
+  (allOfSet $ matcher leftM &> matcher rightM)
 
 treeEq
   :: (Show a, Eq a, Applicative f, Traversable f)
@@ -154,6 +154,28 @@ main = hspec $ do
         , ok "number of elements is 2" "2"
         ]
 
+    it "can aggregate matchers" $ do
+      match 1 (allOf [gt 0, lt 5]) `shouldBe`
+        MatchTree True "all of" "1"
+        [ ok "is a value > 0" "1"
+        , ok "is a value < 5" "1"
+        ]
+      match 1 (allOf [gt 1, lt 5]) `shouldBe`
+        MatchTree False "all of" "1"
+        [ nok "is a value > 1" "1"
+        , ok "is a value < 5" "1"
+        ]
+      match 1 (oneOf [lt 1, ne 0]) `shouldBe`
+        MatchTree True "one of" "1"
+        [ nok "is a value < 1" "1"
+        , ok "is a value not equal to 0" "1"
+        ]
+      match 1 (oneOf [lt (-1), gt 1]) `shouldBe`
+        MatchTree False "one of" "1"
+        [ nok "is a value < -1" "1"
+        , nok "is a value > 1" "1"
+        ]
+  
   describe "Container matching" $ do
     it "can check if container is empty" $ do
       match (Nothing :: Maybe Int) isEmpty `shouldBe` ok "is empty" "Nothing"

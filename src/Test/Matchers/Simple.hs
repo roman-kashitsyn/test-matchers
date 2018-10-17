@@ -55,7 +55,9 @@ module Test.Matchers.Simple
   , matchers
   , anything
   , allOf
+  , allOfSet
   , oneOf
+  , oneOfSet
   , inverseOf
   , andAlso
   , orElse
@@ -117,7 +119,7 @@ type MatcherF f a = Direction -> Maybe (f a) -> f MatchTree
 
 -- | A (possibly empty) group of matchers. A set of matchers can be
 -- turned into a proper matcher via aggregation functions,
--- e.g. 'allOf' or 'oneOf'.
+-- e.g. 'allOfSet' or 'oneOfSet'.
 --
 -- Matcher sets can be composed \"sequentially\" or in
 -- \"parallel\".
@@ -359,14 +361,36 @@ matcher
 matcher = MatcherSetF . fmap (fmap (fmap pure))
 
 -- | Constructs a matcher that succeed if all the matchers in the
--- provided list succeed.
-allOf :: (Show a, Applicative f) => MatcherSetF f a -> MatcherF f a
-allOf = aggregateWith and ("all of", "not all of")
+-- provided set succeed.
+allOfSet
+  :: (Show a, Applicative f)
+  => MatcherSetF f a
+  -> MatcherF f a
+allOfSet = aggregateWith and ("all of", "not all of")
+
+-- | A more convenient version of 'allOfSet' that works on foldable
+-- containers instead of matcher sets.
+allOf
+  :: (Show a, Applicative f, Foldable t)
+  => t (MatcherF f a) -- ^ A foldable container with matchers.
+  -> MatcherF f a
+allOf = allOfSet . matchers
 
 -- | Constructs a matcher that succeed if at least one of the matchers
--- in the provided list succeed.
-oneOf :: (Show a, Applicative f) => MatcherSetF f a -> MatcherF f a
-oneOf = aggregateWith or ("one of", "none of")
+-- in the provided set succeed.
+oneOfSet
+  :: (Show a, Applicative f)
+  => MatcherSetF f a
+  -> MatcherF f a
+oneOfSet = aggregateWith or ("one of", "none of")
+
+-- | A more convenient version of 'oneOfSet' that works on foldable
+-- containers instead of matcher sets.
+oneOf
+  :: (Show a, Applicative f, Foldable t)
+  => t (MatcherF f a) -- ^ A foldable container with matchers.
+  -> MatcherF f a
+oneOf = oneOfSet . matchers
 
 -- | Inverts the given matcher.
 --
@@ -379,11 +403,11 @@ inverseOf m d = m (flipDirection d)
 
 -- | A version of 'allOf' specialized for two submatchers.
 andAlso :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f a
-andAlso l r = allOf $ matchers [l, r]
+andAlso l r = allOf [l, r]
 
 -- | A version of 'oneOf' specialized for two submatchers.
 orElse :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f a
-orElse l r = oneOf $ matchers [l, r]
+orElse l r = oneOf [l, r]
 
 -- | Checks that the container has no values.
 -- The inverse is 'isNotEmpty'.
