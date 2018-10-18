@@ -49,10 +49,16 @@ treeEq (Leaf x) = leafIs (eq x)
 treeEq (Fork l r) = forkIs (treeEq l) (treeEq r)
 
 ok :: Message -> Message -> MatchTree
-ok msg val = MatchTree True msg val []
+ok msg val = MatchTree True msg (Just val) []
+
+ok' :: Message -> MatchTree
+ok' msg = MatchTree True msg Nothing []
 
 nok :: Message -> Message -> MatchTree
-nok msg val = MatchTree False msg val []
+nok msg val = MatchTree False msg (Just val) []
+
+nok' :: Message -> MatchTree
+nok' msg = MatchTree False msg Nothing []
 
 colorVar :: String
 colorVar = "TEST_MATCHERS_COLOR"
@@ -107,10 +113,10 @@ main = hspec $ do
 
     it "can match pairs" $ do
       match (3, 4) (tuple2 (eq 3) (gt 1)) `shouldBe`
-        MatchTree True "all of" "(3,4)"
-        [ MatchTree True "property \"fst\"" "(3,4)"
+        MatchTree True "all of" (Just "(3,4)")
+        [ MatchTree True "projection \"fst\"" (Just "(3,4)")
           [ok "is a value equal to 3" "3"]
-        , MatchTree True "property \"snd\"" "(3,4)"
+        , MatchTree True "projection \"snd\"" (Just "(3,4)")
           [ok "is a value > 1" "4"]
         ]
 
@@ -118,11 +124,11 @@ main = hspec $ do
       match (Left 3 :: Either Int String) (leftIs (eq 3)) `shouldBe`
         MatchTree True
         "prism \"Left\""
-        "Left 3" [ok "is a value equal to 3" "3"]
+        (Just "Left 3") [ok "is a value equal to 3" "3"]
       match (Right "ok" :: Either Int String) (rightIs anything) `shouldBe`
         MatchTree True
         "prism \"Right\""
-        "Right \"ok\"" [ok "anything" "\"ok\""]
+        (Just "Right \"ok\"") [ok "anything" "\"ok\""]
 
     it "can match list prefixes/suffixes/infixes" $ do
       match [1, 1, 2, 3] (startsWith [1, 1]) `shouldBe`
@@ -134,21 +140,21 @@ main = hspec $ do
 
     it "can match lists" $ do
       match ([] :: [Int])  (elementsAre []) `shouldBe`
-        MatchTree True "container such that" "[]"
+        MatchTree True "container such that" (Just "[]")
         [ok "number of elements is 0" "0"]
 
       match [] (elementsAre [eq 5]) `shouldBe`
-        MatchTree False "container such that" "[]"
-        [ nok "is a value equal to 5" "nothing"
+        MatchTree False "container such that" (Just "[]")
+        [ nok' "is a value equal to 5"
         , nok "number of elements is 1" "0"
         ]
       match [5, 7] (elementsAre [eq 5]) `shouldBe`
-        MatchTree False "container such that" "[5,7]"
+        MatchTree False "container such that" (Just "[5,7]")
         [ ok "is a value equal to 5" "5"
         , nok "number of elements is 1" "2"
         ]
       match [5, 7] (elementsAre [eq 5, gt 5]) `shouldBe`
-        MatchTree True "container such that" "[5,7]"
+        MatchTree True "container such that" (Just "[5,7]")
         [ ok "is a value equal to 5" "5"
         , ok "is a value > 5" "7"
         , ok "number of elements is 2" "2"
@@ -156,22 +162,22 @@ main = hspec $ do
 
     it "can aggregate matchers" $ do
       match 1 (allOf [gt 0, lt 5]) `shouldBe`
-        MatchTree True "all of" "1"
+        MatchTree True "all of" (Just "1")
         [ ok "is a value > 0" "1"
         , ok "is a value < 5" "1"
         ]
       match 1 (allOf [gt 1, lt 5]) `shouldBe`
-        MatchTree False "all of" "1"
+        MatchTree False "all of" (Just "1")
         [ nok "is a value > 1" "1"
         , ok "is a value < 5" "1"
         ]
       match 1 (oneOf [lt 1, ne 0]) `shouldBe`
-        MatchTree True "one of" "1"
+        MatchTree True "one of" (Just "1")
         [ nok "is a value < 1" "1"
         , ok "is a value not equal to 0" "1"
         ]
       match 1 (oneOf [lt (-1), gt 1]) `shouldBe`
-        MatchTree False "one of" "1"
+        MatchTree False "one of" (Just "1")
         [ nok "is a value < -1" "1"
         , nok "is a value > 1" "1"
         ]
@@ -187,10 +193,10 @@ main = hspec $ do
 
     it "can check the length of a container" $ do
       match (Just 1) (lengthIs $ gt 0) `shouldBe`
-        MatchTree True "property \"length\"" "Just 1"
+        MatchTree True "projection \"length\"" (Just "Just 1")
         [ ok "is a value > 0" "1" ]
       match [1,2,3] (lengthIs $ eq 4) `shouldBe`
-        MatchTree False "property \"length\"" "[1,2,3]"
+        MatchTree False "projection \"length\"" (Just "[1,2,3]")
         [ nok "is a value equal to 4" "3" ]
 
   describe "Test.HUnit integration" $ do
@@ -201,11 +207,23 @@ main = hspec $ do
     it "can run `shouldMatchIO` for monad assertions" $ do
       (pure 5) `shouldMatchIO` (gt 0)
 
+  describe "Tree printing" $ withNoColor $ do
+    it "prints trees with forward references" $ do
+      let input = "a very long string that should be turn into a ref" :: String
+      (input `shouldMatch` allOf [isEmpty, isNotEmpty]) `failureMessageIs`
+        intercalate "\n"
+        [ "✘ all of ← <1>"
+        , "  ✘ is empty ← <1>"
+        , "  ✔ is not empty ← <1>"
+        , "where:"
+        , "  <1> " ++ show input
+        ]
+  
   describe "Exception matching" $ do
 
     it "can match exceptions as normal values" $ do
       (ioError unsupportedOperation) `shouldMatchIO`
-        (throws $ property "ioe_type" ioe_type (eq UnsupportedOperation))
+        (throws $ projection "ioe_type" ioe_type (eq UnsupportedOperation))
 
     it "can match any exception" $ do
       ioError unsupportedOperation `shouldMatchIO`
@@ -215,10 +233,9 @@ main = hspec $ do
       (throws (eq DivideByZero) `runMatcher` ioError unsupportedOperation) `shouldReturn`
         (MatchTree False
          "action throwing ArithException that"
-         (fromString $ show unsupportedOperation)
-         [nok
-          (fromString $ "is a value equal to " ++ show DivideByZero)
-          "nothing"])
+         (Just $ fromString $ show unsupportedOperation)
+         [nok' (fromString $ "is a value equal to " ++ show DivideByZero)
+         ])
 
   describe "README examples" $ withNoColor $ do
     let div :: Int -> Int -> Either String Int
@@ -229,8 +246,10 @@ main = hspec $ do
     it "works for negative case" $ do
       div 5 0 `shouldMatch` (rightIs $ eq 0)
         `failureMessageIs`
-        (intercalate "\n" [ "✘ prism \"Right\" ← Left \"Division by zero\""
-                          , "  ✘ is a value equal to 0 ← nothing"
+        (intercalate "\n" [ "✘ prism \"Right\" ← <1>"
+                          , "  ✘ is a value equal to 0"
+                          , "where:"
+                          , "  <1> Left \"Division by zero\""
                           ])
 
   describe "Custom matchers" $ do

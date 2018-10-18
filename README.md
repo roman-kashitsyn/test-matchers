@@ -26,14 +26,16 @@ div 5 0 `shouldMatch` (rightIs $ eq 0)
 
 The failed test display the following error message:
 
-<pre><span>✘ prism Right</span> ← <em>Left "Division by zero"</em>
-  <span>✘ is a value equal to <em>0</em></span> ← nothing</pre>
+<pre><span>✘ prism Right</span> ← <1>
+  <span>✘ is a value equal to <em>0</em></span>
+where:
+  <1> <em>Left "Division by zero"</em></pre>
 
 You can also match exceptions:
 
 ```haskell
 myAction `shouldMatchIO`
-  (throws $ property "ioe_type" ioe_type $ eq UnsupportedOperation)
+  (throws $ projection "ioe_type" ioe_type $ eq UnsupportedOperation)
 ```
 
 # Disclaimer

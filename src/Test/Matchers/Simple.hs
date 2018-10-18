@@ -75,7 +75,7 @@ module Test.Matchers.Simple
   , tuple2
   , leftIs
   , rightIs
-  , property
+  , projection
   , prism
   , contramap
 
@@ -171,7 +171,7 @@ data MatchTree
   = MatchTree
     { mtValue          :: !Bool -- ^ Whether the match was successful.
     , mtDescription    :: Message -- ^ Message describing this matcher.
-    , mtMatchedValue   :: Message -- ^ Textual representation of the value matched.
+    , mtMatchedValue   :: Maybe Message -- ^ Textual representation of the value matched.
     , mtSubnodes       :: [MatchTree] -- ^ Submatchers used to produce this result.
     } deriving (Show)
 
@@ -218,8 +218,8 @@ predicate :: (Show a, Applicative f)
               -> MatcherF f a
 predicate predicate descr dir v =
   case v of
-    Nothing -> pure $ MatchTree False msg noValueMessage []
-    Just fa -> (\x -> MatchTree (applyDirection dir (predicate x)) msg (inputToDoc (Just x)) []) <$> fa
+    Nothing -> pure $ MatchTree False msg Nothing []
+    Just fa -> (\x -> MatchTree (applyDirection dir (predicate x)) msg (Just $ display x) []) <$> fa
   where msg = pickDescription dir descr
 
 
@@ -230,7 +230,7 @@ aggregateWith :: (Show a, Applicative f)
               -> MatcherF f a
 aggregateWith aggr descr matcherSet dir value =
   let subnodesF = matchF matcherSet dir value
-      msgF = inputToDocF value
+      msgF = sequenceA $ fmap (fmap display) value
   in liftA2 (\xs m -> MatchTree
                       (applyDirection dir (aggr $ map mtValue xs))
                       (pickDescription dir descr)
@@ -427,7 +427,7 @@ lengthIs
   :: (Show (t a), Foldable t, Applicative f)
   => MatcherF f Int -- ^ Matcher for the container size.
   -> MatcherF f (t a)
-lengthIs = property "length" length
+lengthIs = projection "length" length
 
 -- | Checks that elements of the container are matched by the matchers
 -- exactly. The number of elements in the container should match the
@@ -437,12 +437,12 @@ elementsAre :: (Foldable t, Monad f, Show a, Show (t a))
             -> MatcherF f (t a) -- ^ Matcher for the whole container.
 elementsAre matchers dir = maybe emptyTree mkTree
   where
-    emptyTree = MatchTree False descr noValueMessage <$> sequenceA (map (\m -> m Positive Nothing) matchers)
+    emptyTree = MatchTree False descr Nothing <$> sequenceA (map (\m -> m Positive Nothing) matchers)
 
     mkTree fitems = do
       items <- fitems
       subnodes <- sequenceA $ go (toList items) matchers 0
-      return $ MatchTree (applyDirection dir (all mtValue subnodes)) name (display items) subnodes
+      return $ MatchTree (applyDirection dir (all mtValue subnodes)) name (Just $ display items) subnodes
 
     numMatchers = length matchers
     name  = hsep ["container", "such", "that"]
@@ -453,10 +453,10 @@ elementsAre matchers dir = maybe emptyTree mkTree
     sizeMessage  = hsep ["number", "of", "elements", "is", display numMatchers]
 
     go (x:xs) (m:ms) n = m Positive (Just $ pure x) : go xs ms (n + 1)
-    go [] [] n = [pure $ MatchTree True sizeMessage (display n) []]
-    go moreItems@(x:_) [] n = [pure $ MatchTree False sizeMessage (display $ n + length moreItems) []]
+    go [] [] n = [pure $ MatchTree True sizeMessage (Just $ display n) []]
+    go moreItems@(x:_) [] n = [pure $ MatchTree False sizeMessage (Just $ display $ n + length moreItems) []]
     go [] ms@(m:_) n = [ m Positive Nothing
-                       , pure $ MatchTree False sizeMessage (display n) []
+                       , pure $ MatchTree False sizeMessage (Just $ display n) []
                        ]
 
 -- | Matcher that succeeds if the argument starts with the specified
@@ -465,8 +465,9 @@ startsWith :: (Applicative f, Show a, Eq a)
            => [a]            -- ^ The prefix the list is expected to have.
            -> MatcherF f [a]
 startsWith xs = predicate (xs `isPrefixOf`)
-                ( (hsep ["starts", "with", display xs])
-                , (hsep ["does", "not", "start", "with", display xs]))
+                ( hsep ["starts", "with", display xs]
+                , hsep ["does", "not", "start", "with", display xs]
+                )
 
 -- | Matcher that succeeds if the argument ends with the specified
 -- suffix.
@@ -474,16 +475,18 @@ endsWith :: (Applicative f, Show a, Eq a)
            => [a]            -- ^ The suffix the list is expected to have.
            -> MatcherF f [a]
 endsWith xs = predicate (xs `isSuffixOf`)
-              ( (hsep ["ends", "with", display xs])
-              , (hsep ["does", "not", "end", "with", display xs]))
+              ( hsep ["ends", "with", display xs]
+              , hsep ["does", "not", "end", "with", display xs]
+              )
 
 -- | Matcher that succeeds if the argument contains the given infix.
 hasInfix :: (Applicative f, Show a, Eq a)
            => [a]            -- ^ The infix the list is expected to have.
            -> MatcherF f [a]
 hasInfix xs = predicate (xs `isInfixOf`)
-              ( (hsep ["has", "infix", display xs])
-              , (hsep ["does", "not", "have", "infix", display xs]))
+              ( hsep ["has", "infix", display xs]
+              , hsep ["does", "not", "have", "infix", display xs]
+              )
 
 -- | Builds a matcher for a pair from the matchers of components.
 tuple2
@@ -491,7 +494,7 @@ tuple2
   => MatcherF f a -- ^ Matcher for the 1st element of the pair.
   -> MatcherF f b -- ^ Matcher for the 2nd element of the pair.
   -> MatcherF f (a, b)
-tuple2 mx my = property "fst" fst mx `andAlso` property "snd" snd my
+tuple2 mx my = projection "fst" fst mx `andAlso` projection "snd" snd my
 
 -- | Makes a matcher that only matches 'Left' values satisfying given
 -- matcher.
@@ -510,7 +513,7 @@ rightIs
 rightIs = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing }
 
 -- | Implementation of Data.Functor.Covariant.contramap.
--- Avoid using it directly, prefer 'property' instead.
+-- Avoid using it directly, prefer 'projection' instead.
 contramap :: (Functor f) => (s -> a) -> MatcherF f a -> MatcherF f s
 contramap f p dir = p dir . fmap (fmap f)
 
@@ -518,13 +521,13 @@ contramap f p dir = p dir . fmap (fmap f)
 --
 -- It's equivalent to 'contramap' but also takes a name for
 -- mismatch reporting.
-property :: (Show a, Show s, Applicative f)
-         => String       -- ^ The name of the property of the structure 's'
+projection :: (Show a, Show s, Applicative f)
+         => String       -- ^ The name of the projection of the structure 's'
          -> (s -> a)     -- ^ The projection from a structure 's' to it's substructure 'a'.
          -> MatcherF f a -- ^ Matcher of the substructure 'a'.
          -> MatcherF f s
-property name proj m = aggregateWith and (descr, descr) $ matcher (contramap proj m)
-  where descr  = hsep ["property", symbol name]
+projection name proj m = aggregateWith and (descr, descr) $ matcher (contramap proj m)
+  where descr  = hsep ["projection", symbol name]
 
 -- | Builds a matcher for one alternative of a sum type given matcher for a
 -- prism projection.
@@ -535,9 +538,9 @@ prism :: (Show s, Show a, Traversable f, Applicative f)
       -> MatcherF f s
 prism name p m dir v =
   case v of
-    Nothing -> (MatchTree False descr noValueMessage . pure) <$> m dir Nothing
+    Nothing -> (MatchTree False descr Nothing . pure) <$> m dir Nothing
     Just fs ->
-      (\n s -> MatchTree (mtValue n) descr (display s) [n])
+      (\n s -> MatchTree (mtValue n) descr (Just $ display s) [n])
       <$> m dir (sequenceA $ fmap p fs)
       <*> fs
   where
@@ -571,15 +574,15 @@ throws exMatcher dir maybeAction = do
       
   case maybeAction of
     Nothing ->
-      return $ MatchTree False d noValueMessage [runIdentity $ exMatcher Positive Nothing]
+      return $ MatchTree False d Nothing [runIdentity $ exMatcher Positive Nothing]
     Just action -> do
       outcome <- tryExn action
       case outcome of
         NoExn -> return
-          $ MatchTree False d noValueMessage [runIdentity $ exMatcher Positive Nothing]
+          $ MatchTree False d Nothing [runIdentity $ exMatcher Positive Nothing]
         ExpectedExn exn -> return $ let node = match exn exMatcher
-                                    in MatchTree (applyDirection dir (mtValue node)) d (display exn) [node]
-        OtherExn exn -> return $ MatchTree (applyDirection dir False) d (display exn) [runIdentity $ exMatcher Positive Nothing]
+                                    in MatchTree (applyDirection dir (mtValue node)) d (Just $ display exn) [node]
+        OtherExn exn -> return $ MatchTree (applyDirection dir False) d (Just $ display exn) [runIdentity $ exMatcher Positive Nothing]
 
 -- | Runs a matcher on the given effectful value and returns the
 -- `MatchTree` wrapped into the same effect.

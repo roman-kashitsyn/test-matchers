@@ -36,6 +36,7 @@ module Test.Matchers.Message
   , annotate
   , hcat
   , hsep
+  , hardline
   , vcat
   , vsep
   , indent
