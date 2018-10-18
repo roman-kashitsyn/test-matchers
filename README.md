@@ -24,7 +24,8 @@ div 5 0 `shouldMatch` (leftIs $ hasInfix "zero")
 div 5 0 `shouldMatch` (rightIs $ eq 0)
 ```
 
-The failed test display the following error message:
+The failed test in the example above displays the following error
+message:
 
 <pre><span>✘ prism Right</span> ← <1>
   <span>✘ is a value equal to <em>0</em></span>
