@@ -54,6 +54,8 @@ module Test.Matchers.Simple
   , matcher
   , matchers
   , anything
+  , projection
+  , prism
   , allOf
   , allOfSet
   , oneOf
@@ -61,6 +63,7 @@ module Test.Matchers.Simple
   , inverseOf
   , andAlso
   , orElse
+  , contramap
 
   -- * Matchers for sequences
   , isEmpty
@@ -75,11 +78,8 @@ module Test.Matchers.Simple
   , tuple2
   , leftIs
   , rightIs
-  , projection
-  , prism
-  , contramap
 
-  -- * Exception matching
+  -- * Matchers for exceptions
   , throws
 
   -- * Executing matchers
