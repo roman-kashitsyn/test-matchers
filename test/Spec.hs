@@ -160,6 +160,33 @@ main = hspec $ do
         , ok "number of elements is 2" "2"
         ]
 
+    it "can match each element of a list" $ do
+      match [1,2] (each $ gt 0) `shouldBe`
+        MatchTree True "each element of the container" (Just "[1,2]")
+        [ ok "is a value > 0" "1"
+        , ok "is a value > 0" "2"
+        ]
+
+      match [-1,1] (each $ gt 0) `shouldBe`
+        MatchTree False "each element of the container" (Just "[-1,1]")
+        [ nok "is a value > 0" "-1"
+        , ok "is a value > 0" "1"
+        ]
+
+      match [] (each $ gt 0) `shouldBe`
+        MatchTree True "each element of the container" (Just "[]")
+        [ nok' "is a value > 0" ]
+
+      match [] (inverseOf $ each $ gt 0) `shouldBe`
+        MatchTree False "container has at least one element that" (Just "[]")
+        [ nok' "is a value > 0" ]
+
+      match [0,5] (inverseOf $ each $ lt 5) `shouldBe`
+        MatchTree True "container has at least one element that" (Just "[0,5]")
+        [ ok "is a value < 5" "0"
+        , nok "is a value < 5" "5"
+        ]
+
     it "can aggregate matchers" $ do
       match 1 (allOf [gt 0, lt 5]) `shouldBe`
         MatchTree True "all of" (Just "1")

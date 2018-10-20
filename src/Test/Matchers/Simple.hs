@@ -69,6 +69,7 @@ module Test.Matchers.Simple
   , isEmpty
   , isNotEmpty
   , lengthIs
+  , each
   , elementsAre
   , startsWith
   , endsWith
@@ -428,6 +429,35 @@ lengthIs
   => MatcherF f Int -- ^ Matcher for the container size.
   -> MatcherF f (t a)
 lengthIs = projection "length" length
+
+-- | Checks that each element of the container matches the provided
+-- matcher for container elements.  If the container is empty, the
+-- matcher still succeeds.
+--
+-- The inverse of this matcher checks that container has at least one
+-- counter-example for the given element matcher.
+each
+  :: (Foldable t, Monad f, Show a, Show (t a))
+  => MatcherF f a -- ^ Matcher for the elements of the container.
+  -> MatcherF f (t a) -- ^ Matcher for the whole container.
+each m dir val =
+  case val of
+    Nothing -> (mkEmpty False Nothing) <$> fTree
+    Just fta -> do
+      ta <- toList <$> fta
+      if null ta
+        then (mkEmpty (applyDirection dir True) (Just $ display ta)) <$> fTree
+        else do subtrees <- traverse (m Positive . Just . pure) ta
+                pure $ MatchTree (applyDirection dir $ all mtValue subtrees)
+                       descr
+                       (Just $ display ta)
+                       subtrees
+
+  where descr = pickDescription dir (descrPos, descrNeg)
+        descrPos = hsep ["each", "element", "of", "the", "container"]
+        descrNeg = hsep ["container", "has", "at", "least", "one", "element", "that"]
+        mkEmpty outcome val t = MatchTree outcome descr val [t]
+        fTree = m Positive Nothing
 
 -- | Checks that elements of the container are matched by the matchers
 -- exactly. The number of elements in the container should match the
