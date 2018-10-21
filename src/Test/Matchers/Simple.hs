@@ -437,17 +437,17 @@ lengthIs = projection "length" length
 -- The inverse of this matcher checks that container has at least one
 -- counter-example for the given element matcher.
 each
-  :: (Foldable t, Monad f, Show a, Show (t a))
+  :: (Foldable t, Monad f, Show (t a))
   => MatcherF f a -- ^ Matcher for the elements of the container.
   -> MatcherF f (t a) -- ^ Matcher for the whole container.
 each m dir val =
   case val of
     Nothing -> (mkEmpty False Nothing) <$> fTree
     Just fta -> do
-      ta <- toList <$> fta
+      ta <- fta
       if null ta
         then (mkEmpty (applyDirection dir True) (Just $ display ta)) <$> fTree
-        else do subtrees <- traverse (m Positive . Just . pure) ta
+        else do subtrees <- traverse (m Positive . Just . pure) (toList ta)
                 pure $ MatchTree (applyDirection dir $ all mtValue subtrees)
                        descr
                        (Just $ display ta)
@@ -462,7 +462,7 @@ each m dir val =
 -- | Checks that elements of the container are matched by the matchers
 -- exactly. The number of elements in the container should match the
 -- number of matchers in the list.
-elementsAre :: (Foldable t, Monad f, Show a, Show (t a))
+elementsAre :: (Foldable t, Monad f, Show (t a))
             => [MatcherF f a] -- ^ List of matchers for the elements of the list.
             -> MatcherF f (t a) -- ^ Matcher for the whole container.
 elementsAre matchers dir = maybe emptyTree mkTree
