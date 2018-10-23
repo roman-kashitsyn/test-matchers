@@ -177,11 +177,11 @@ main = hspec $ do
         MatchTree True "each element of the container" (Just "[]")
         [ nok' "is a value > 0" ]
 
-      match [] (inverse $ each $ gt 0) `shouldBe`
+      match [] (negationOf $ each $ gt 0) `shouldBe`
         MatchTree False "container has at least one element that" (Just "[]")
         [ nok' "is a value > 0" ]
 
-      match [0,5] (inverse $ each $ lt 5) `shouldBe`
+      match [0,5] (negationOf $ each $ lt 5) `shouldBe`
         MatchTree True "container has at least one element that" (Just "[0,5]")
         [ ok "is a value < 5" "0"
         , nok "is a value < 5" "5"

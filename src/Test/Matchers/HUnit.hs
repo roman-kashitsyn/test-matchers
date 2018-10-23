@@ -74,7 +74,7 @@ shouldNotMatch
   => a -- ^ The value that should fail the test.
   -> Matcher a -- ^ The matcher to run.
   -> Assertion
-shouldNotMatch x m = shouldMatch x (inverse m)
+shouldNotMatch x m = shouldMatch x (negationOf m)
 
 -- | A variant of 'shouldMatch' that matches an IO action instead of a
 -- pure value.
@@ -92,4 +92,4 @@ shouldNotMatchIO
   :: IO a -- ^ The action that should fail the test.
   -> MatcherF IO a -- ^ The matcher to run.
   -> Assertion
-shouldNotMatchIO action matcher = shouldNotMatchIO action (inverse matcher)
+shouldNotMatchIO action matcher = shouldNotMatchIO action (negationOf matcher)

@@ -60,7 +60,7 @@ module Test.Matchers.Simple
   , allOfSet
   , oneOf
   , oneOfSet
-  , inverse
+  , negationOf
   , andAlso
   , orElse
   , contramap
@@ -215,7 +215,7 @@ inputToDoc = maybe noValueMessage display
 -- | Makes a matcher from a predicate and it's description.
 predicate :: (Show a, Applicative f)
               => (a -> Bool) -- ^ Predicate to use for matching
-              -> (Message, Message) -- ^ Messages describing this predicate and it's inverse.
+              -> (Message, Message) -- ^ Messages describing this predicate and it's negationOf.
               -> MatcherF f a
 predicate predicate descr dir v =
   case v of
@@ -256,7 +256,7 @@ ne
   :: (Eq a, Show a, Applicative f)
   => a -- ^ The value that the argument must be not equal to.
   -> MatcherF f a
-ne = inverse . eq
+ne = negationOf . eq
 
 -- | Matcher that succeeds if the argument (which is a number) is not
 -- further than the specified absolute error from the given value.
@@ -314,7 +314,7 @@ gt = cmpSatisfies (== GT) ">" "≤"
 ge :: (Ord a, Show a, Applicative f)
    => a
    -> MatcherF f a
-ge = inverse . lt
+ge = negationOf . lt
 
 -- | Mathcer that succeeds if the argument is /less than/ the
 -- specified value.
@@ -328,14 +328,14 @@ lt = cmpSatisfies (== LT) "<" "≥"
 le :: (Ord a, Show a, Applicative f)
    => a
    -> MatcherF f a
-le = inverse . gt
+le = negationOf . gt
 
 -- | A helper function to contruct matcher for 'Ord' types
 cmpSatisfies
   :: (Ord a, Show a, Applicative f)
   => (Ordering -> Bool) -- ^ Predicate matching the outcome of 'compare'.
   -> String -- ^ Comparison symbol describing the matcher.
-  -> String -- ^ Comparison symbol describing the inverse of the matcher.
+  -> String -- ^ Comparison symbol describing the negationOf of the matcher.
   -> a -- ^ Value to compare against.
   -> MatcherF f a
 cmpSatisfies p symbol symbol_ bound = predicate (\x -> p $ compare x bound) (descr, descr_)
@@ -395,12 +395,12 @@ oneOf = oneOfSet . matchers
 
 -- | Inverts the given matcher.
 --
--- prop> forall m. inverse (inverse m) == m
--- prop> forall x m. x matches m ⇒ not (x matches (inverse m))
-inverse
-  :: MatcherF f a -- ^ The matcher to inverse.
+-- prop> forall m. negationOf (negationOf m) == m
+-- prop> forall x m. x matches m ⇒ not (x matches (negationOf m))
+negationOf
+  :: MatcherF f a -- ^ The matcher to negationOf.
   -> MatcherF f a
-inverse m d = m (flipDirection d)
+negationOf m d = m (flipDirection d)
 
 -- | A version of 'allOf' specialized for two submatchers.
 andAlso :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f a
@@ -411,7 +411,7 @@ orElse :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f 
 orElse l r = oneOf [l, r]
 
 -- | Checks that the container has no values.
--- The inverse is 'isNotEmpty'.
+-- The negationOf is 'isNotEmpty'.
 isEmpty
   :: (Show (t a), Foldable t, Applicative f)
   => MatcherF f (t a)
@@ -421,7 +421,7 @@ isEmpty = predicate null ("is empty", "is not empty")
 isNotEmpty
   :: (Show (t a), Foldable t, Applicative f)
   => MatcherF f (t a)
-isNotEmpty = inverse isEmpty
+isNotEmpty = negationOf isEmpty
 
 -- | Checks that container length satisfies the given matcher.
 lengthIs
@@ -434,7 +434,7 @@ lengthIs = projection "length" length
 -- matcher for container elements.  If the container is empty, the
 -- matcher still succeeds.
 --
--- The inverse of this matcher checks that container has at least one
+-- The negation of this matcher checks that container has at least one
 -- counter-example for the given element matcher.
 each
   :: (Foldable t, Monad f, Show (t a))
