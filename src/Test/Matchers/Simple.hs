@@ -60,7 +60,7 @@ module Test.Matchers.Simple
   , allOfSet
   , oneOf
   , oneOfSet
-  , inverseOf
+  , inverse
   , andAlso
   , orElse
   , contramap
@@ -256,7 +256,7 @@ ne
   :: (Eq a, Show a, Applicative f)
   => a -- ^ The value that the argument must be not equal to.
   -> MatcherF f a
-ne = inverseOf . eq        
+ne = inverse . eq
 
 -- | Matcher that succeeds if the argument (which is a number) is not
 -- further than the specified absolute error from the given value.
@@ -314,7 +314,7 @@ gt = cmpSatisfies (== GT) ">" "≤"
 ge :: (Ord a, Show a, Applicative f)
    => a
    -> MatcherF f a
-ge = inverseOf . lt
+ge = inverse . lt
 
 -- | Mathcer that succeeds if the argument is /less than/ the
 -- specified value.
@@ -328,7 +328,7 @@ lt = cmpSatisfies (== LT) "<" "≥"
 le :: (Ord a, Show a, Applicative f)
    => a
    -> MatcherF f a
-le = inverseOf . gt
+le = inverse . gt
 
 -- | A helper function to contruct matcher for 'Ord' types
 cmpSatisfies
@@ -395,12 +395,12 @@ oneOf = oneOfSet . matchers
 
 -- | Inverts the given matcher.
 --
--- prop> forall m. inverseOf (inverseOf m) == m
--- prop> forall x m. x matches m ⇒ not (x matches (inverseOf m))
-inverseOf
+-- prop> forall m. inverse (inverse m) == m
+-- prop> forall x m. x matches m ⇒ not (x matches (inverse m))
+inverse
   :: MatcherF f a -- ^ The matcher to inverse.
   -> MatcherF f a
-inverseOf m d = m (flipDirection d)
+inverse m d = m (flipDirection d)
 
 -- | A version of 'allOf' specialized for two submatchers.
 andAlso :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f a
@@ -421,7 +421,7 @@ isEmpty = predicate null ("is empty", "is not empty")
 isNotEmpty
   :: (Show (t a), Foldable t, Applicative f)
   => MatcherF f (t a)
-isNotEmpty = inverseOf isEmpty
+isNotEmpty = inverse isEmpty
 
 -- | Checks that container length satisfies the given matcher.
 lengthIs
