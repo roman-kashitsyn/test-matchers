@@ -68,7 +68,7 @@ module Test.Matchers.Simple
   -- * Matchers for sequences
   , isEmpty
   , isNotEmpty
-  , lengthIs
+  , hasLength
   , each
   , elementsAre
   , startsWith
@@ -77,8 +77,8 @@ module Test.Matchers.Simple
 
   -- * Matchers for basic types from the standard library
   , tuple2
-  , leftIs
-  , rightIs
+  , isLeftWith
+  , isRightWith
 
   -- * Matchers for exceptions
   , throws
@@ -424,11 +424,11 @@ isNotEmpty
 isNotEmpty = negationOf isEmpty
 
 -- | Checks that container length satisfies the given matcher.
-lengthIs
+hasLength
   :: (Show (t a), Foldable t, Applicative f)
   => MatcherF f Int -- ^ Matcher for the container size.
   -> MatcherF f (t a)
-lengthIs = projection "length" length
+hasLength = projection "length" length
 
 -- | Checks that each element of the container matches the provided
 -- matcher for container elements.  If the container is empty, the
@@ -528,19 +528,19 @@ tuple2 mx my = projection "fst" fst mx `andAlso` projection "snd" snd my
 
 -- | Makes a matcher that only matches 'Left' values satisfying given
 -- matcher.
-leftIs
+isLeftWith
   :: (Show a, Show b, Traversable f, Applicative f)
   => MatcherF f a -- ^ Matcher for the left side of 'Either'.
   -> MatcherF f (Either a b)
-leftIs  = prism "Left"  $ \x -> case x of { Left a  -> Just a; _ -> Nothing }
+isLeftWith  = prism "Left"  $ \x -> case x of { Left a  -> Just a; _ -> Nothing }
 
 -- | Makes a matcher that only matches 'Right' values satisfying given
 -- matcher.
-rightIs
+isRightWith
   :: (Show a, Show b, Traversable f, Applicative f)
   => MatcherF f b -- ^ Matcher for the right side of 'Either'.
   -> MatcherF f (Either a b)
-rightIs = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing }
+isRightWith = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing }
 
 -- | Implementation of Data.Functor.Covariant.contramap.
 -- Avoid using it directly, prefer 'projection' instead.

@@ -26,18 +26,18 @@ import System.Environment (unsetEnv, setEnv)
 
 data Tree a = Leaf a | Fork (Tree a) (Tree a) deriving (Show, Eq)
 
-leafIs
+isLeafWith
   :: (Show a, Applicative f, Traversable f)
   => MatcherF f a
   -> MatcherF f (Tree a)
-leafIs = prism "Leaf" (\t -> case t of Leaf x' -> Just x'; _ -> Nothing)
+isLeafWith = prism "Leaf" (\t -> case t of Leaf x' -> Just x'; _ -> Nothing)
 
-forkIs
+isForkWith
   :: (Show a, Applicative f, Traversable f)
   => MatcherF f (Tree a)
   -> MatcherF f (Tree a)
   -> MatcherF f (Tree a)
-forkIs leftM rightM = prism "Fork"
+isForkWith leftM rightM = prism "Fork"
   (\t -> case t of Fork l' r' -> Just (l' &. r'); _ -> Nothing)
   (allOfSet $ matcher leftM &> matcher rightM)
 
@@ -45,8 +45,8 @@ treeEq
   :: (Show a, Eq a, Applicative f, Traversable f)
   => Tree a
   -> MatcherF f (Tree a)
-treeEq (Leaf x) = leafIs (eq x)
-treeEq (Fork l r) = forkIs (treeEq l) (treeEq r)
+treeEq (Leaf x) = isLeafWith (eq x)
+treeEq (Fork l r) = isForkWith (treeEq l) (treeEq r)
 
 ok :: Message -> Message -> MatchTree
 ok msg val = MatchTree True msg (Just val) []
@@ -121,11 +121,11 @@ main = hspec $ do
         ]
 
     it "can match Either a b" $ do
-      match (Left 3 :: Either Int String) (leftIs (eq 3)) `shouldBe`
+      match (Left 3 :: Either Int String) (isLeftWith (eq 3)) `shouldBe`
         MatchTree True
         "prism \"Left\""
         (Just "Left 3") [ok "is a value equal to 3" "3"]
-      match (Right "ok" :: Either Int String) (rightIs anything) `shouldBe`
+      match (Right "ok" :: Either Int String) (isRightWith anything) `shouldBe`
         MatchTree True
         "prism \"Right\""
         (Just "Right \"ok\"") [ok "anything" "\"ok\""]
@@ -219,10 +219,10 @@ main = hspec $ do
       match ([] :: [Int]) isNotEmpty `shouldBe` nok "is not empty" "[]"
 
     it "can check the length of a container" $ do
-      match (Just 1) (lengthIs $ gt 0) `shouldBe`
+      match (Just 1) (hasLength $ gt 0) `shouldBe`
         MatchTree True "projection \"length\"" (Just "Just 1")
         [ ok "is a value > 0" "1" ]
-      match [1,2,3] (lengthIs $ eq 4) `shouldBe`
+      match [1,2,3] (hasLength $ eq 4) `shouldBe`
         MatchTree False "projection \"length\"" (Just "[1,2,3]")
         [ nok "is a value equal to 4" "3" ]
 
@@ -269,9 +269,9 @@ main = hspec $ do
         div _ 0 = Left "Division by zero"
         div x y = Right (x `quot` y)
     it "works for positive case" $ do
-      div 5 0 `shouldMatch` (leftIs $ hasInfix "zero")
+      div 5 0 `shouldMatch` (isLeftWith $ hasInfix "zero")
     it "works for negative case" $ do
-      div 5 0 `shouldMatch` (rightIs $ eq 0)
+      div 5 0 `shouldMatch` (isRightWith $ eq 0)
         `failureMessageIs`
         (intercalate "\n" [ "✘ prism \"Right\" ← <1>"
                           , "  ✘ is a value equal to 0"
