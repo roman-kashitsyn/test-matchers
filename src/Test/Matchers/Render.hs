@@ -33,7 +33,6 @@ module Test.Matchers.Render
 import Test.Matchers.Message
 import Test.Matchers.Simple
 
-import qualified Control.Monad.Trans.State as S
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Data.Text.Lazy (unpack)
@@ -52,6 +51,34 @@ data PPOptions
     { ppMode :: Mode
     }
 
+-- Minimal implementation of the (lazy) State monad to avoid the
+-- direct dependency on transformers.
+
+newtype State s a = State { runState :: s -> (a, s) }
+
+instance Functor (State s) where
+  fmap f (State run) = State $ \s -> let (a, s') = run s in (f a, s')
+
+instance Applicative (State s) where
+  pure x = State $ \s -> (x, s)
+  (State runF) <*> (State runX) = State $ \s ->
+                                            let (f, s') = runF s
+                                                (x, s'') = runX s'
+                                            in (f x, s'')
+
+instance Monad (State s) where
+  return = pure
+  (State run) >>= f = State $ \s -> let (x, s') = run s
+                                    in runState (f x) s'
+
+get :: State s s
+get = State $ \s -> (s, s)
+
+put :: s -> State s ()
+put s = State $ \_ -> ((), s)
+
+-- end of the State implementation
+
 newtype DisplayMsg = DisplayMsg { unDisplay :: Message } deriving (Show)
 
 instance Eq DisplayMsg where
@@ -60,7 +87,7 @@ instance Eq DisplayMsg where
 instance Ord DisplayMsg where
   compare x y = compare (show x) (show y)
 
-type State = S.State (M.Map DisplayMsg Int)
+type RenderState = State (M.Map DisplayMsg Int)
 
 -- | Renders the match tree as a document.  The function tries to be
 -- pick the most readable format to represent the failure.
@@ -99,23 +126,23 @@ renderAsTree t =
   then doc
   else doc <> hardline <> "where:" <> hardline <> indent 2 (renderRefs refs)
   where
-    (doc, refs) = S.runState (renderAsTreeWithRefs t) M.empty
+    (doc, refs) = runState (renderAsTreeWithRefs t) M.empty
     swap (x, y) = (y, x)
     renderRefs = vsep . map renderRef . IM.toList . IM.fromList . map swap . M.toList
     renderRef (id, val) = displayRef id <+> unDisplay val
 
-allocateId :: Message -> State Int
+allocateId :: Message -> RenderState Int
 allocateId str = do
-  m <- S.get
+  m <- get
   let msg = DisplayMsg str
   case M.lookup msg m of
     Just i -> return i
     Nothing -> do
       let n = 1 + M.size m
-      S.put $ M.insert msg n m
+      put $ M.insert msg n m
       return n
 
-renderAsTreeWithRefs :: MatchTree -> State Message
+renderAsTreeWithRefs :: MatchTree -> RenderState Message
 renderAsTreeWithRefs (MatchTree res descr val subnodes) = do
   doc <- lineDoc
   subtreeDocs <- traverse renderAsTreeWithRefs subnodes
