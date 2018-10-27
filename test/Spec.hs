@@ -139,6 +139,23 @@ main = hspec $ do
           [nok "is a value < 4" "5"]
         ]
 
+    it "can match Maybe a" $ do
+      match (Nothing :: Maybe Int) isNothing `shouldBe`
+        ok "is Nothing" "Nothing"
+      match (Just 5) isNothing `shouldBe`
+        nok "is Nothing" "Just 5"
+      match (Nothing :: Maybe Int) (negationOf isNothing) `shouldBe`
+        nok "is not Nothing" "Nothing"
+      match (Just 5) (negationOf isNothing) `shouldBe`
+        ok "is not Nothing" "Just 5"
+
+      match (Nothing :: Maybe Int) (isJustWith $ eq 5) `shouldBe`
+        MatchTree False "prism \"Just\"" (Just "Nothing")
+        [nok' "is a value equal to 5"]
+      match (Just 5) (isJustWith $ eq 5) `shouldBe`
+        MatchTree True "prism \"Just\"" (Just "Just 5")
+        [ok "is a value equal to 5" "5"]
+
     it "can match Either a b" $ do
       match (Left 3 :: Either Int String) (isLeftWith (eq 3)) `shouldBe`
         MatchTree True

@@ -78,6 +78,8 @@ module Test.Matchers.Simple
   -- * Matchers for basic types from the standard library
   , tuple2
   , tuple3
+  , isNothing
+  , isJustWith
   , isLeftWith
   , isRightWith
 
@@ -538,6 +540,21 @@ tuple3 mx my mz = allOf [ projection "#1" (\(x,_,_) -> x) mx
                         , projection "#2" (\(_,y,_) -> y) my
                         , projection "#3" (\(_,_,z) -> z) mz
                         ]
+
+-- | A matcher for 'Maybe' that matches only 'Nothing'.
+isNothing
+  :: (Show a, Applicative f)
+  => MatcherF f (Maybe a)
+isNothing = predicate (\m -> case m of Nothing -> True; _ -> False)
+            ("is Nothing", "is not Nothing")
+
+-- | Builds a matcher for 'Maybe' that only matches 'Just' values
+-- satisfying the given matcher.
+isJustWith
+  :: (Show a, Applicative f, Traversable f)
+  => MatcherF f a
+  -> MatcherF f (Maybe a)
+isJustWith = prism "Just" id
 
 -- | Makes a matcher that only matches 'Left' values satisfying given
 -- matcher.
