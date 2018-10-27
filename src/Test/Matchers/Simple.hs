@@ -77,6 +77,7 @@ module Test.Matchers.Simple
 
   -- * Matchers for basic types from the standard library
   , tuple2
+  , tuple3
   , isLeftWith
   , isRightWith
 
@@ -518,13 +519,25 @@ hasInfix xs = predicate (xs `isInfixOf`)
               , hsep ["does", "not", "have", "infix", display xs]
               )
 
--- | Builds a matcher for a pair from the matchers of components.
+-- | Builds a matcher for a pair from the matchers for components.
 tuple2
   :: (Show a, Show b, Applicative f)
   => MatcherF f a -- ^ Matcher for the 1st element of the pair.
   -> MatcherF f b -- ^ Matcher for the 2nd element of the pair.
   -> MatcherF f (a, b)
 tuple2 mx my = projection "fst" fst mx `andAlso` projection "snd" snd my
+
+-- | Builds a matcher for a 3-tuple from the matchers for components.
+tuple3
+  :: (Show a, Show b, Show c, Applicative f)
+  => MatcherF f a -- ^ Matcher for the 1st element of the 3-tuple.
+  -> MatcherF f b -- ^ Matcher for the 2nd element of the 3-tuple.
+  -> MatcherF f c -- ^ Matcher for the 3rd element of the 3-tuple.
+  -> MatcherF f (a, b, c)
+tuple3 mx my mz = allOf [ projection "#1" (\(x,_,_) -> x) mx
+                        , projection "#2" (\(_,y,_) -> y) my
+                        , projection "#3" (\(_,_,z) -> z) mz
+                        ]
 
 -- | Makes a matcher that only matches 'Left' values satisfying given
 -- matcher.

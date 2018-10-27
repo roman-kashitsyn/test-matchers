@@ -111,13 +111,32 @@ main = hspec $ do
       0.00006 `shouldNotMatch` numberNear 0.00005 0
       0.1 `shouldNotMatch` numberNear 0.00005 0
 
-    it "can match pairs" $ do
+    it "can match tuples" $ do
       match (3, 4) (tuple2 (eq 3) (gt 1)) `shouldBe`
         MatchTree True "all of" (Just "(3,4)")
         [ MatchTree True "projection \"fst\"" (Just "(3,4)")
           [ok "is a value equal to 3" "3"]
         , MatchTree True "projection \"snd\"" (Just "(3,4)")
           [ok "is a value > 1" "4"]
+        ]
+
+      match (3, 4, 5) (tuple3 (eq 3) (gt 1) (gt 3)) `shouldBe`
+        MatchTree True "all of" (Just "(3,4,5)")
+        [ MatchTree True "projection \"#1\"" (Just "(3,4,5)")
+          [ok "is a value equal to 3" "3"]
+        , MatchTree True "projection \"#2\"" (Just "(3,4,5)")
+          [ok "is a value > 1" "4"]
+        , MatchTree True "projection \"#3\"" (Just "(3,4,5)")
+          [ok "is a value > 3" "5"]
+        ]
+      match (3, 4, 5) (tuple3 (lt 4) (lt 4) (lt 4)) `shouldBe`
+        MatchTree False "all of" (Just "(3,4,5)")
+        [ MatchTree True "projection \"#1\"" (Just "(3,4,5)")
+          [ok "is a value < 4" "3"]
+        , MatchTree False "projection \"#2\"" (Just "(3,4,5)")
+          [nok "is a value < 4" "4"]
+        , MatchTree False "projection \"#3\"" (Just "(3,4,5)")
+          [nok "is a value < 4" "5"]
         ]
 
     it "can match Either a b" $ do
