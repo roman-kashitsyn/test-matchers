@@ -56,6 +56,7 @@ module Test.Matchers.Simple
   , anything
   , projection
   , prism
+  , prismWith
   , allOf
   , allOfSet
   , oneOf
@@ -161,7 +162,7 @@ type MatcherF f a = Direction -> Maybe (f a) -> f MatchTree
 --  │ MatcherSetF f a │ ╾╯
 --  ╰─────────────────╯
 -- @
-newtype MatcherSetF f a = MatcherSetF { matchF :: Direction -> Maybe (f a) -> f [MatchTree] }
+newtype MatcherSetF f a = MatcherSetF { matchSetF :: Direction -> Maybe (f a) -> f [MatchTree] }
 
 -- | A specialization of the 'MatcherF' that can only match pure
 -- values.
@@ -233,7 +234,7 @@ aggregateWith :: (Show a, Applicative f)
               -> MatcherSetF f a
               -> MatcherF f a
 aggregateWith aggr descr matcherSet dir value =
-  let subnodesF = matchF matcherSet dir value
+  let subnodesF = matchSetF matcherSet dir value
       msgF = sequenceA $ fmap (fmap display) value
   in liftA2 (\xs m -> MatchTree
                       (applyDirection dir (aggr $ map mtValue xs))
@@ -591,20 +592,36 @@ projection name proj m = aggregateWith and (descr, descr) $ matcher (contramap p
 
 -- | Builds a matcher for one alternative of a sum type given matcher for a
 -- prism projection.
-prism :: (Show s, Show a, Traversable f, Applicative f)
-      => String         -- ^ The name of the selected alternative of the structure 's'.
-      -> (s -> Maybe a) -- ^ The projection that tries to select the alternative 'a'.
-      -> MatcherF f a   -- ^ The matcher for the value of the alternative.
-      -> MatcherF f s
-prism name p m dir v =
+prism
+  :: (Show s, Traversable f, Applicative f)
+  => String -- ^ The name of the selected alternative of the structure "s".
+  -> (s -> Maybe a) -- ^ The selector for the alternative "a".
+  -> MatcherF f a -- ^ The matcher for the value of the alternative.
+  -> MatcherF f s
+prism name p m = prismWith name p (matcher m)
+
+-- | A version of 'prism' that takes a set of matchers for the value
+-- instead of a single one. The results of the matchers in the set are
+-- aggregated with 'and'. This results in a shallower and less
+-- cluttered trees when defining custom matchers comparing to 'prism'
+-- followed by 'allOf'.
+--
+-- prop> x `matches` (prismWith "p" p set) ⇔ x `matches` (prism "p" p (allOfSet set))
+-- prop> x `matches` (prism "p" p m) ⇔ x `matches` (prismWith "p" p (matcher m))
+prismWith
+  :: (Show s, Traversable f, Applicative f)
+  => String -- ^ The name of the selected alternative.
+  -> (s -> Maybe a) -- ^ The selector for the alternative "a".
+  -> MatcherSetF f a -- ^ The set of matchers for the alternative "a".
+  -> MatcherF f s
+prismWith name p set dir v =
   case v of
-    Nothing -> (MatchTree False descr Nothing . pure) <$> m dir Nothing
-    Just fs ->
-      (\n s -> MatchTree (mtValue n) descr (Just $ display s) [n])
-      <$> m dir (sequenceA $ fmap p fs)
+    Nothing -> (MatchTree False descr Nothing) <$> (matchSetF set dir Nothing)
+    Just fs -> (\subtrees s -> MatchTree (all mtValue subtrees) descr (Just $ display s) subtrees)
+      <$> matchSetF set dir (sequenceA $ fmap p fs)
       <*> fs
-  where
-    descr  = hsep ["prism", symbol name]
+  where descr = hsep ["prism", symbol name]
+
 
 -- | Represents a result of IO action execution.
 data ActionOutcome e
@@ -693,7 +710,7 @@ infixl 7 &.
      -> MatcherSetF f (a, b)
 ma &> mb = MatcherSetF $ \dir maybeP ->
   liftA2 mappend
-  (matchF ma dir $ fmap (fmap fst) maybeP)
-  (matchF mb dir $ fmap (fmap snd) maybeP)
+  (matchSetF ma dir $ fmap (fmap fst) maybeP)
+  (matchSetF mb dir $ fmap (fmap snd) maybeP)
 
 infixl 7 &>

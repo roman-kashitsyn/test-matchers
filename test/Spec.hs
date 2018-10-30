@@ -37,9 +37,9 @@ isForkWith
   => MatcherF f (Tree a)
   -> MatcherF f (Tree a)
   -> MatcherF f (Tree a)
-isForkWith leftM rightM = prism "Fork"
-  (\t -> case t of Fork l' r' -> Just (l' &. r'); _ -> Nothing)
-  (allOfSet $ matcher leftM &> matcher rightM)
+isForkWith leftM rightM = prismWith "Fork" p (matcher leftM &> matcher rightM)
+  where p (Fork l r) = Just (l &. r)
+        p _ = Nothing
 
 treeEq
   :: (Show a, Eq a, Applicative f, Traversable f)
@@ -319,3 +319,10 @@ main = hspec $ do
     it "can match trees" $ do
       let t = (Fork (Fork (Leaf 5) (Leaf 7)) (Leaf 10))
       t `shouldMatch` treeEq t
+
+    it "can fuse prisms with all of" $ do
+      match (Fork (Leaf 1) (Leaf 2)) (isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 2)) `shouldBe`
+        MatchTree True "prism \"Fork\"" (Just "Fork (Leaf 1) (Leaf 2)")
+        [ MatchTree True "prism \"Leaf\"" (Just "Leaf 1") [ok "is a value equal to 1" "1"]
+        , MatchTree True "prism \"Leaf\"" (Just "Leaf 2") [ok "is a value equal to 2" "2"]
+        ]
