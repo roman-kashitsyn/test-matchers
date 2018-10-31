@@ -56,7 +56,7 @@ module Test.Matchers.Simple
   , anything
   , projection
   , prism
-  , prismWith
+  , prismWithSet
   , allOf
   , allOfSet
   , oneOf
@@ -598,7 +598,7 @@ prism
   -> (s -> Maybe a) -- ^ The selector for the alternative "a".
   -> MatcherF f a -- ^ The matcher for the value of the alternative.
   -> MatcherF f s
-prism name p m = prismWith name p (matcher m)
+prism name p m = prismWithSet name p (matcher m)
 
 -- | A version of 'prism' that takes a set of matchers for the value
 -- instead of a single one. The results of the matchers in the set are
@@ -606,15 +606,15 @@ prism name p m = prismWith name p (matcher m)
 -- cluttered trees when defining custom matchers comparing to 'prism'
 -- followed by 'allOf'.
 --
--- prop> x `matches` (prismWith "p" p set) ⇔ x `matches` (prism "p" p (allOfSet set))
--- prop> x `matches` (prism "p" p m) ⇔ x `matches` (prismWith "p" p (matcher m))
-prismWith
+-- prop> x `matches` (prismWithSet "p" p set) ⇔ x `matches` (prism "p" p (allOfSet set))
+-- prop> x `matches` (prism "p" p m) ⇔ x `matches` (prismWithSet "p" p (matcher m))
+prismWithSet
   :: (Show s, Traversable f, Applicative f)
   => String -- ^ The name of the selected alternative.
   -> (s -> Maybe a) -- ^ The selector for the alternative "a".
   -> MatcherSetF f a -- ^ The set of matchers for the alternative "a".
   -> MatcherF f s
-prismWith name p set dir v =
+prismWithSet name p set dir v =
   case v of
     Nothing -> (MatchTree False descr Nothing) <$> (matchSetF set dir Nothing)
     Just fs -> (\subtrees s -> MatchTree (all mtValue subtrees) descr (Just $ display s) subtrees)

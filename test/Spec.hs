@@ -37,7 +37,7 @@ isForkWith
   => MatcherF f (Tree a)
   -> MatcherF f (Tree a)
   -> MatcherF f (Tree a)
-isForkWith leftM rightM = prismWith "Fork" p (matcher leftM &> matcher rightM)
+isForkWith leftM rightM = prismWithSet "Fork" p (matcher leftM &> matcher rightM)
   where p (Fork l r) = Just (l &. r)
         p _ = Nothing
 
