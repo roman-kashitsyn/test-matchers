@@ -300,6 +300,13 @@ main = hspec $ do
          [nok' (fromString $ "is a value equal to " ++ show DivideByZero)
          ])
 
+    it "reports error when no exception thrown" $ do
+      (throws (eq DivideByZero) `runMatcher` (pure 0)) `shouldReturn`
+        (MatchTree False
+        "action throwing ArithException that"
+         Nothing
+         [nok' (fromString $ "is a value equal to " ++ show DivideByZero)])
+
   describe "README examples" $ withNoColor $ do
     let div :: Int -> Int -> Either String Int
         div _ 0 = Left "Division by zero"
