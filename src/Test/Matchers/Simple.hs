@@ -55,6 +55,7 @@ module Test.Matchers.Simple
   , matchers
   , anything
   , projection
+  , projectionWithSet
   , prism
   , prismWithSet
   , allOf
@@ -578,16 +579,36 @@ isRightWith = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing 
 contramap :: (Functor f) => (s -> a) -> MatcherF f a -> MatcherF f s
 contramap f p dir = p dir . fmap (fmap f)
 
+-- | Implementation of Data.Functor.Covariant.contramap for a matcher set.
+contramapSet
+  :: (Functor f)
+  => (s -> a)
+  -> MatcherSetF f a
+  -> MatcherSetF f s
+contramapSet f set = MatcherSetF run
+  where run dir = matchSetF set dir . fmap (fmap f)
+
 -- | Builds a matcher for a structure from a matcher of its substructure.
+projection
+  :: (Show s, Applicative f)
+  => String -- ^ The name of the projection of the structure 's'
+  -> (s -> a) -- ^ The projection from a structure 's' to it's substructure 'a'.
+  -> MatcherF f a -- ^ Matcher of the substructure 'a'.
+  -> MatcherF f s
+projection name proj m = projectionWithSet name proj (matcher m)
+
+-- | Builds a matcher for a structure from a set of matchers for its substructure.
+-- The whole matcher succeeds if all the matchers from the set succeed.
 --
--- It's equivalent to 'contramap' but also takes a name for
--- mismatch reporting.
-projection :: (Show a, Show s, Applicative f)
-         => String       -- ^ The name of the projection of the structure 's'
-         -> (s -> a)     -- ^ The projection from a structure 's' to it's substructure 'a'.
-         -> MatcherF f a -- ^ Matcher of the substructure 'a'.
-         -> MatcherF f s
-projection name proj m = aggregateWith and (descr, descr) $ matcher (contramap proj m)
+-- prop> x `matches` (projectionWithSet "p" p set) ⇔ x `matches` (projection "p" p (allOfSet set))
+-- prop> x `matches` (projection "p" p m) ⇔ x `matches` (projectionWithSet "p" p (matcher m))
+projectionWithSet
+  :: (Show s, Applicative f)
+  => String -- ^ The name of the projection.
+  -> (s -> a) -- ^ The projection from "s" to "a".
+  -> MatcherSetF f a -- ^ The set of matchers for the projected "a".
+  -> MatcherF f s
+projectionWithSet name proj set = aggregateWith and (descr, descr) $ (contramapSet proj set)
   where descr  = hsep ["projection", symbol name]
 
 -- | Builds a matcher for one alternative of a sum type given matcher for a
