@@ -447,11 +447,11 @@ each
   -> MatcherF f (t a) -- ^ Matcher for the whole container.
 each m dir val =
   case val of
-    Nothing -> (mkEmpty False Nothing) <$> fTree
+    Nothing -> mkEmpty False Nothing <$> fTree
     Just fta -> do
       ta <- fta
       if null ta
-        then (mkEmpty (applyDirection dir True) (Just $ display ta)) <$> fTree
+        then mkEmpty (applyDirection dir True) (Just $ display ta) <$> fTree
         else do subtrees <- traverse (m Positive . Just . pure) (toList ta)
                 pure $ MatchTree (applyDirection dir $ all mtValue subtrees)
                        descr
@@ -608,7 +608,7 @@ projectionWithSet
   -> (s -> a) -- ^ The projection from "s" to "a".
   -> MatcherSetF f a -- ^ The set of matchers for the projected "a".
   -> MatcherF f s
-projectionWithSet name proj set = aggregateWith and (descr, descr) $ (contramapSet proj set)
+projectionWithSet name proj set = aggregateWith and (descr, descr) (contramapSet proj set)
   where descr  = hsep ["projection", symbol name]
 
 -- | Builds a matcher for one alternative of a sum type given matcher for a
@@ -637,7 +637,7 @@ prismWithSet
   -> MatcherF f s
 prismWithSet name p set dir v =
   case v of
-    Nothing -> (MatchTree False descr Nothing) <$> (matchSetF set dir Nothing)
+    Nothing -> MatchTree False descr Nothing <$> matchSetF set dir Nothing
     Just fs -> (\subtrees s -> MatchTree (all mtValue subtrees) descr (Just $ display s) subtrees)
       <$> matchSetF set dir (sequenceA $ fmap p fs)
       <*> fs

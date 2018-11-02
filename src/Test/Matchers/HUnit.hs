@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 {-# OPTIONS_HADDOCK hide #-}
+{-# LANGUAGE ImplicitParams #-}
 {- |
 Module:       Test.Matchers.HUnit
 Description:  HUnit integration.
@@ -33,26 +34,11 @@ module Test.Matchers.HUnit
   , shouldNotMatchIO
   ) where
 
-import Test.Matchers.Simple
-import Test.Matchers.Render
+import qualified Test.Matchers.HUnit.Implicit as I
 
-import Control.Monad (unless)
-import Data.Functor.Identity (Identity (..), runIdentity)
-import System.Environment (lookupEnv)
-
-import Test.HUnit (Assertion, assertFailure)
-
-toColorMode :: Maybe String -> Mode
-toColorMode Nothing  = RichText
-toColorMode (Just s) = if  s `elem` ["", "1", "yes", "true", "color"]
-                       then RichText
-                       else PlainText
-
-treeToAssertion :: MatchTree -> Assertion
-treeToAssertion tree = unless (mtValue tree) $ do
-                         env <- lookupEnv "TEST_MATCHERS_COLOR"
-                         assertFailure $ prettyPrint
-                           defaultPPOptions { pp_mode = toColorMode env } tree
+import Test.Matchers.Simple (Matcher, MatcherF)
+import Test.Matchers.Render (defaultPPOptions)
+import Test.HUnit (Assertion)
 
 -- | Checks that a pure value is matched by the given matcher.
 -- The function is designed to be used in test frameworks, mainly HUnit and
@@ -62,19 +48,19 @@ treeToAssertion tree = unless (mtValue tree) $ do
 -- > testCase = TestCase (fib 5 `shouldMatch` eq 5)
 --
 shouldMatch
-  :: (Show a)
-  => a -- ^ The value that should pass the test.
+  :: a -- ^ The value that should pass the test.
   -> Matcher a  -- ^ The matcher to run.
   -> Assertion
-shouldMatch x m = treeToAssertion (match x m)
+shouldMatch = let ?matchersOptions = defaultPPOptions
+              in I.shouldMatch
 
 -- | The complement of 'shouldMatch'.
 shouldNotMatch
-  :: (Show a)
-  => a -- ^ The value that should fail the test.
+  :: a -- ^ The value that should fail the test.
   -> Matcher a -- ^ The matcher to run.
   -> Assertion
-shouldNotMatch x m = shouldMatch x (negationOf m)
+shouldNotMatch = let ?matchersOptions = defaultPPOptions
+                 in I.shouldNotMatch
 
 -- | A variant of 'shouldMatch' that matches an IO action instead of a
 -- pure value.
@@ -85,11 +71,13 @@ shouldMatchIO
   :: IO a -- ^ The action that should pass the test.
   -> MatcherF IO a -- ^ The matcher to run.
   -> Assertion
-shouldMatchIO action matcher = runMatcher matcher action >>= treeToAssertion
+shouldMatchIO = let ?matchersOptions = defaultPPOptions
+                in I.shouldMatchIO
 
 -- | The complement of 'shouldMatchIO'.
 shouldNotMatchIO
   :: IO a -- ^ The action that should fail the test.
   -> MatcherF IO a -- ^ The matcher to run.
   -> Assertion
-shouldNotMatchIO action matcher = shouldNotMatchIO action (negationOf matcher)
+shouldNotMatchIO = let ?matchersOptions = defaultPPOptions
+                   in I.shouldNotMatchIO

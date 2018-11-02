@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ImplicitParams #-}
 import Test.Hspec
 
 import Data.String (IsString(..))
@@ -21,8 +22,8 @@ import Data.List (intercalate)
 import GHC.IO.Exception
 import Control.Exception
 import Test.Matchers
+import qualified Test.Matchers.HUnit.Implicit as I
 import Test.HUnit.Lang (HUnitFailure(..), FailureReason(Reason))
-import System.Environment (unsetEnv, setEnv)
 
 data Tree a = Leaf a | Fork (Tree a) (Tree a) deriving (Show, Eq)
 
@@ -59,12 +60,6 @@ nok msg val = MatchTree False msg (Just val) []
 
 nok' :: Message -> MatchTree
 nok' msg = MatchTree False msg Nothing []
-
-colorVar :: String
-colorVar = "TEST_MATCHERS_COLOR"
-
-withNoColor :: SpecWith a -> SpecWith a
-withNoColor = around_ $ bracket_ (setEnv colorVar "0") (unsetEnv colorVar)
 
 failureMessageIs :: Expectation -> String -> Expectation
 failureMessageIs test msg =
@@ -270,10 +265,12 @@ main = hspec $ do
     it "can run `shouldMatchIO` for monad assertions" $ do
       (pure 5) `shouldMatchIO` (gt 0)
 
-  describe "Tree printing" $ withNoColor $ do
+  describe "Tree printing" $ do
+    let ?matchersOptions = defaultPPOptions { ppMode = PlainText }
+
     it "prints trees with forward references" $ do
       let input = "a very long string that should be turn into a ref" :: String
-      (input `shouldMatch` allOf [isEmpty, isNotEmpty]) `failureMessageIs`
+      (input `I.shouldMatch` allOf [isEmpty, isNotEmpty]) `failureMessageIs`
         intercalate "\n"
         [ "✘ all of ← <1>"
         , "  ✘ is empty ← <1>"
@@ -307,14 +304,16 @@ main = hspec $ do
          Nothing
          [nok' (fromString $ "is a value equal to " ++ show DivideByZero)])
 
-  describe "README examples" $ withNoColor $ do
+  describe "README examples" $ do
     let div :: Int -> Int -> Either String Int
         div _ 0 = Left "Division by zero"
         div x y = Right (x `quot` y)
     it "works for positive case" $ do
       div 5 0 `shouldMatch` (isLeftWith $ hasInfix "zero")
+
+    let ?matchersOptions = defaultPPOptions { ppMode = PlainText }
     it "works for negative case" $ do
-      div 5 0 `shouldMatch` (isRightWith $ eq 0)
+      div 5 0 `I.shouldMatch` (isRightWith $ eq 0)
         `failureMessageIs`
         (intercalate "\n" [ "✘ prism \"Right\" ← <1>"
                           , "  ✘ is a value equal to 0"

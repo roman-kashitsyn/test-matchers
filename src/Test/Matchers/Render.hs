@@ -49,23 +49,23 @@ data Mode = PlainText | RichText
 -- | Options controlling the pretty-printing.
 data PPOptions
   = PPOptions
-    { pp_mode :: Mode -- ^ The mode specifies whether the medium
-                      -- supports fancy styles and colors.
-    , pp_use_unicode :: Bool -- ^ Whether we're allowed to use fancy
-                             -- Unicode symbols in the output.
-    , pp_max_value_width :: Int -- ^ Max length of the value before
-                                -- it's turned into a reference.
-    , pp_page_width :: Int -- ^ Maximum page width in characters for
-                           -- the pretty printer.
+    { ppMode :: Mode -- ^ The mode specifies whether the medium
+                     -- supports fancy styles and colors.
+    , ppUseUnicode :: Bool -- ^ Whether we're allowed to use fancy
+                           -- Unicode symbols in the output.
+    , ppMaxValueWidth :: Int -- ^ Max length of the value before
+                             -- it's turned into a reference.
+    , ppPageWidth :: Int -- ^ Maximum page width in characters for
+                         -- the pretty printer.
     }
 
 -- | Default values for the 'PPOptions'.
 defaultPPOptions :: PPOptions
 defaultPPOptions = PPOptions
-                   { pp_mode = RichText
-                   , pp_use_unicode = True
-                   , pp_max_value_width = 20
-                   , pp_page_width = 80
+                   { ppMode = RichText
+                   , ppUseUnicode = True
+                   , ppMaxValueWidth = 20
+                   , ppPageWidth = 80
                    }
 
 -- Minimal implementation of the (lazy) State + Reader monad to avoid
@@ -175,7 +175,7 @@ renderAsTreeWithRefs (MatchTree res descr val subnodes) = do
   where msgStyle = if res then Success else Failure
         aDescr = annotate msgStyle descr
         lineDoc = do
-          limit <- asks pp_max_value_width
+          limit <- asks ppMaxValueWidth
           case val of
             Nothing -> return aDescr
             Just valMsg | length (show valMsg) > limit -> do
@@ -197,8 +197,8 @@ prettyPrint
   -> MatchTree -- ^ Match tree to format.
   -> String
 prettyPrint opts = unpack . render . PP.reAnnotate toAnsiStyle .
-                   applyMode (pp_mode opts) . treeToMessage opts
+                   applyMode (ppMode opts) . treeToMessage opts
   where render = PPT.renderLazy . PP.layoutPretty ppOpts
         applyMode PlainText = PP.unAnnotate
         applyMode RichText = id
-        ppOpts = PP.defaultLayoutOptions {PP.layoutPageWidth = PP.AvailablePerLine (pp_page_width opts) 1.0}
+        ppOpts = PP.defaultLayoutOptions {PP.layoutPageWidth = PP.AvailablePerLine (ppPageWidth opts) 1.0}

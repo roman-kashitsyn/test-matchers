@@ -21,6 +21,7 @@ library
                      , Test.Matchers.Message
                      , Test.Matchers.Render
                      , Test.Matchers.HUnit
+                     , Test.Matchers.HUnit.Implicit
 
   build-depends:       base >=4.8 && <5
                      , prettyprinter >=1.1 && <2
