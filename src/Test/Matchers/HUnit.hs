@@ -52,7 +52,7 @@ treeToAssertion :: MatchTree -> Assertion
 treeToAssertion tree = unless (mtValue tree) $ do
                          env <- lookupEnv "TEST_MATCHERS_COLOR"
                          assertFailure $ prettyPrint
-                           PPOptions { ppMode = toColorMode env } tree
+                           defaultPPOptions { pp_mode = toColorMode env } tree
 
 -- | Checks that a pure value is matched by the given matcher.
 -- The function is designed to be used in test frameworks, mainly HUnit and

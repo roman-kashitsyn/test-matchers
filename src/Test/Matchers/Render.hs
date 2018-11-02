@@ -27,6 +27,7 @@ Stability:    experimental
 module Test.Matchers.Render
   ( Mode(..)
   , PPOptions(..)
+  , defaultPPOptions
   , prettyPrint
   ) where
 
@@ -48,34 +49,56 @@ data Mode = PlainText | RichText
 -- | Options controlling the pretty-printing.
 data PPOptions
   = PPOptions
-    { ppMode :: Mode
+    { pp_mode :: Mode -- ^ The mode specifies whether the medium
+                      -- supports fancy styles and colors.
+    , pp_use_unicode :: Bool -- ^ Whether we're allowed to use fancy
+                             -- Unicode symbols in the output.
+    , pp_max_value_width :: Int -- ^ Max length of the value before
+                                -- it's turned into a reference.
+    , pp_page_width :: Int -- ^ Maximum page width in characters for
+                           -- the pretty printer.
     }
 
--- Minimal implementation of the (lazy) State monad to avoid the
--- direct dependency on transformers.
+-- | Default values for the 'PPOptions'.
+defaultPPOptions :: PPOptions
+defaultPPOptions = PPOptions
+                   { pp_mode = RichText
+                   , pp_use_unicode = True
+                   , pp_max_value_width = 20
+                   , pp_page_width = 80
+                   }
 
-newtype State s a = State { runState :: s -> (a, s) }
+-- Minimal implementation of the (lazy) State + Reader monad to avoid
+-- the direct dependency on transformers.
 
-instance Functor (State s) where
-  fmap f (State run) = State $ \s -> let (a, s') = run s in (f a, s')
+newtype RState r s a = RState { runRState :: r -> s -> (a, s) }
 
-instance Applicative (State s) where
-  pure x = State $ \s -> (x, s)
-  (State runF) <*> (State runX) = State $ \s ->
-                                            let (f, s') = runF s
-                                                (x, s'') = runX s'
-                                            in (f x, s'')
+instance Functor (RState r s) where
+  fmap f (RState run) = RState $ \r s -> let (a, s') = run r s in (f a, s')
 
-instance Monad (State s) where
+instance Applicative (RState r s) where
+  pure x = RState $ \_ s -> (x, s)
+  (RState runF) <*> (RState runX) = RState $ \r s ->
+                                               let (f, s') = runF r s
+                                                   (x, s'') = runX r s'
+                                               in (f x, s'')
+
+instance Monad (RState r s) where
   return = pure
-  (State run) >>= f = State $ \s -> let (x, s') = run s
-                                    in runState (f x) s'
+  (RState run) >>= f = RState $ \r s -> let (x, s') = run r s
+                                        in runRState (f x) r s'
 
-get :: State s s
-get = State $ \s -> (s, s)
+get :: RState r s s
+get = RState $ \_ s -> (s, s)
 
-put :: s -> State s ()
-put s = State $ \_ -> ((), s)
+put :: s -> RState r s ()
+put s = RState $ \_ _ -> ((), s)
+
+ask :: RState r s r
+ask = asks id
+
+asks :: (r -> r') -> RState r s r'
+asks view = RState $ \r s -> (view r, s)
 
 -- end of the State implementation
 
@@ -87,11 +110,11 @@ instance Eq DisplayMsg where
 instance Ord DisplayMsg where
   compare x y = compare (show x) (show y)
 
-type RenderState = State (M.Map DisplayMsg Int)
+type RenderState = RState PPOptions (M.Map DisplayMsg Int)
 
 -- | Renders the match tree as a document.  The function tries to be
 -- pick the most readable format to represent the failure.
-treeToMessage :: MatchTree -> Message
+treeToMessage :: PPOptions -> MatchTree -> Message
 treeToMessage = renderAsTree
 
 -- | Converts generic message styles into styles suitable for ANSI
@@ -120,13 +143,13 @@ toAnsiStyle style = case style of
 -- Values that are too long are represented as references and are
 -- printed in the bottom of the tree.
 
-renderAsTree :: MatchTree -> Message
-renderAsTree t =
+renderAsTree :: PPOptions -> MatchTree -> Message
+renderAsTree opts t =
   if M.null refs
   then doc
   else doc <> hardline <> "where:" <> hardline <> indent 2 (renderRefs refs)
   where
-    (doc, refs) = runState (renderAsTreeWithRefs t) M.empty
+    (doc, refs) = runRState (renderAsTreeWithRefs t) opts M.empty
     swap (x, y) = (y, x)
     renderRefs = vsep . map renderRef . IM.toList . IM.fromList . map swap . M.toList
     renderRef (id, val) = displayRef id <+> unDisplay val
@@ -151,13 +174,14 @@ renderAsTreeWithRefs (MatchTree res descr val subnodes) = do
   return $  prefix <+> if null subnodes then doc else vsep [doc, subtreeDoc]
   where msgStyle = if res then Success else Failure
         aDescr = annotate msgStyle descr
-        limit = 20
-        lineDoc = case val of
-          Nothing -> return aDescr
-          Just valMsg | length (show valMsg) > limit -> do
-                        id <- allocateId valMsg
-                        return $ hsep [aDescr, arrow, displayRef id]
-          Just valMsg -> return $ hsep [aDescr, arrow, valMsg]
+        lineDoc = do
+          limit <- asks pp_max_value_width
+          case val of
+            Nothing -> return aDescr
+            Just valMsg | length (show valMsg) > limit -> do
+                            id <- allocateId valMsg
+                            return $ hsep [aDescr, arrow, displayRef id]
+            Just valMsg -> return $ hsep [aDescr, arrow, valMsg]
 
 check, cross, arrow :: Message
 check = "✔"
@@ -173,7 +197,8 @@ prettyPrint
   -> MatchTree -- ^ Match tree to format.
   -> String
 prettyPrint opts = unpack . render . PP.reAnnotate toAnsiStyle .
-                   applyMode (ppMode opts) . treeToMessage
-  where render = PPT.renderLazy . PP.layoutPretty PP.defaultLayoutOptions
+                   applyMode (pp_mode opts) . treeToMessage opts
+  where render = PPT.renderLazy . PP.layoutPretty ppOpts
         applyMode PlainText = PP.unAnnotate
         applyMode RichText = id
+        ppOpts = PP.defaultLayoutOptions {PP.layoutPageWidth = PP.AvailablePerLine (pp_page_width opts) 1.0}
