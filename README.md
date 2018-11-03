@@ -48,6 +48,7 @@ You can easily turn your lenses and prisms into matchers using the
 {-# LANGUAGE TemplateHaskell #-}
 
 import Control.Lens
+import Test.Matchers (MatcherF)
 import qualified Test.Matchers as M
 
 data Tree a
@@ -82,7 +83,7 @@ isForkWith
   -> MatcherF f (Tree a)
   -> MatcherF f (Tree a)
 isForkWith matchL matchA matchR
-  = M.prism "Fork" (preview _Fork) (tuple3 matchLeft matchA matchR)
+  = M.prism "Fork" (preview _Fork) (M.tuple3 matchLeft matchA matchR)
 ```
 
 # Disclaimer
