@@ -49,15 +49,15 @@ data Mode = PlainText | RichText
 -- | Options controlling the pretty-printing.
 data PPOptions
   = PPOptions
-    { ppMode :: Mode -- ^ The mode specifies whether the medium
-                     -- supports fancy styles and colors.
-    , ppUseUnicode :: Bool -- ^ Whether we're allowed to use fancy
-                           -- Unicode symbols in the output.
-    , ppMaxValueWidth :: Int -- ^ Max length of the value before
-                             -- it's turned into a reference.
-    , ppPageWidth :: Int -- ^ Maximum page width in characters for
-                         -- the pretty printer.
-    }
+    { ppMode :: !Mode -- ^ The mode specifies whether the medium
+                      -- supports fancy styles and colors.
+    , ppUseUnicode :: !Bool -- ^ Whether we're allowed to use fancy
+                            -- Unicode symbols in the output.
+    , ppMaxValueWidth :: !Int -- ^ Max length of the value before
+                              -- it's turned into a reference.
+    , ppPageWidth :: !Int -- ^ Maximum page width in characters for
+                          -- the pretty printer.
+    } deriving (Eq, Show)
 
 -- | Default values for the 'PPOptions'.
 defaultPPOptions :: PPOptions

@@ -17,7 +17,7 @@ limitations under the License.
 {-# LANGUAGE ImplicitParams #-}
 {- |
 Module:       Test.Matchers.HUnit
-Description:  HUnit integration.
+Description:  HUnit integration for Test.Matchers.
 Copyright:    2018 Google LLC
 License:      Apache2
 Maintainer:   roman.kashitsyn@gmail.com
@@ -51,7 +51,7 @@ shouldMatch
   :: a -- ^ The value that should pass the test.
   -> Matcher a  -- ^ The matcher to run.
   -> Assertion
-shouldMatch = let ?matchersOptions = defaultPPOptions
+shouldMatch = let ?matchersOptionsAction = I.getOptionsFromEnv
               in I.shouldMatch
 
 -- | The complement of 'shouldMatch'.
@@ -59,7 +59,7 @@ shouldNotMatch
   :: a -- ^ The value that should fail the test.
   -> Matcher a -- ^ The matcher to run.
   -> Assertion
-shouldNotMatch = let ?matchersOptions = defaultPPOptions
+shouldNotMatch = let ?matchersOptionsAction = I.getOptionsFromEnv
                  in I.shouldNotMatch
 
 -- | A variant of 'shouldMatch' that matches an IO action instead of a
@@ -71,7 +71,7 @@ shouldMatchIO
   :: IO a -- ^ The action that should pass the test.
   -> MatcherF IO a -- ^ The matcher to run.
   -> Assertion
-shouldMatchIO = let ?matchersOptions = defaultPPOptions
+shouldMatchIO = let ?matchersOptionsAction = I.getOptionsFromEnv
                 in I.shouldMatchIO
 
 -- | The complement of 'shouldMatchIO'.
@@ -79,5 +79,5 @@ shouldNotMatchIO
   :: IO a -- ^ The action that should fail the test.
   -> MatcherF IO a -- ^ The matcher to run.
   -> Assertion
-shouldNotMatchIO = let ?matchersOptions = defaultPPOptions
+shouldNotMatchIO = let ?matchersOptionsAction = I.getOptionsFromEnv
                    in I.shouldNotMatchIO

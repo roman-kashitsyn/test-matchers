@@ -266,7 +266,7 @@ main = hspec $ do
       (pure 5) `shouldMatchIO` (gt 0)
 
   describe "Tree printing" $ do
-    let ?matchersOptions = defaultPPOptions { ppMode = PlainText }
+    let ?matchersOptionsAction = pure $ defaultPPOptions { ppMode = PlainText }
 
     it "prints trees with forward references" $ do
       let input = "a very long string that should be turn into a ref" :: String
@@ -311,7 +311,7 @@ main = hspec $ do
     it "works for positive case" $ do
       div 5 0 `shouldMatch` (isLeftWith $ hasInfix "zero")
 
-    let ?matchersOptions = defaultPPOptions { ppMode = PlainText }
+    let ?matchersOptionsAction = pure $ defaultPPOptions { ppMode = PlainText }
     it "works for negative case" $ do
       div 5 0 `I.shouldMatch` (isRightWith $ eq 0)
         `failureMessageIs`
@@ -332,3 +332,16 @@ main = hspec $ do
         [ MatchTree True "prism \"Leaf\"" (Just "Leaf 1") [ok "is a value equal to 1" "1"]
         , MatchTree True "prism \"Leaf\"" (Just "Leaf 2") [ok "is a value equal to 2" "2"]
         ]
+
+  describe "Pretty-printing options" $ do
+    it "Can deduce pretty-printing options from environment" $ do
+      I.optionsFromEnv [("TERM", "xterm"), ("LANG", "en_US.UTF-8")] `shouldBe`
+        defaultPPOptions
+
+      I.optionsFromEnv [("TERM", "dumb"), ("LANG", "en_US.UTF-8")] `shouldBe`
+        defaultPPOptions { ppMode = PlainText }
+
+      I.optionsFromEnv [("TERM", "dumb"), ("LANG", "C")] `shouldBe`
+        defaultPPOptions { ppMode = PlainText, ppUseUnicode = False }
+
+      I.optionsFromEnv [] `shouldBe` defaultPPOptions { ppUseUnicode = False }
