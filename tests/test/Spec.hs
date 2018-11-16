@@ -22,6 +22,7 @@ import Data.List (intercalate)
 import GHC.IO.Exception
 import Control.Exception
 import Test.Matchers
+import Test.Matchers.HUnit
 import qualified Test.Matchers.HUnit.Implicit as I
 import Test.HUnit.Lang (HUnitFailure(..), FailureReason(Reason))
 

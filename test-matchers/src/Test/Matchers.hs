@@ -15,15 +15,9 @@ limitations under the License.
 -}
 
 module Test.Matchers
-  ( -- * Basic matchers
-    module Test.Matchers.Simple
-  , -- * HUnit integration
-    module Test.Matchers.HUnit
-  , module Test.Matchers.Message
-  , module Test.Matchers.Render
+  ( module M
   ) where
 
-import Test.Matchers.Message (Message)
-import Test.Matchers.Simple
-import Test.Matchers.Render
-import Test.Matchers.HUnit
+import Test.Matchers.Message as M (Message)
+import Test.Matchers.Simple as M
+import Test.Matchers.Render as M

@@ -14,5 +14,7 @@
 
 resolver: lts-9.21
 packages:
-  - .
+  - test-matchers
+  - hunit-matchers
+  - tests
 
