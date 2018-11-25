@@ -608,8 +608,12 @@ projectionWithSet
   -> (s -> a) -- ^ The projection from "s" to "a".
   -> MatcherSetF f a -- ^ The set of matchers for the projected "a".
   -> MatcherF f s
-projectionWithSet name proj set = aggregateWith and (descr, descr) (contramapSet proj set)
-  where descr  = hsep ["projection", symbol name]
+projectionWithSet name proj set dir value =
+  let subnodesF = matchSetF (contramapSet proj set) dir value
+      descr  = hsep ["projection", symbol name]
+      msgF = sequenceA $ fmap (fmap display) value
+  in liftA2 (\xs msg -> MatchTree (all mtValue xs) descr msg xs)
+     subnodesF msgF
 
 -- | Builds a matcher for one alternative of a sum type given matcher for a
 -- prism projection.

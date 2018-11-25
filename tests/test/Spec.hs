@@ -19,10 +19,12 @@ import Test.Hspec
 
 import Data.String (IsString(..))
 import Data.List (intercalate)
+import Data.Functor.Identity (Identity (..), runIdentity)
 import GHC.IO.Exception
 import Control.Exception
 import Test.Matchers
 import Test.Matchers.HUnit
+import Test.QuickCheck (forAll, elements, property, counterexample)
 import qualified Test.Matchers.HUnit.Implicit as I
 import Test.HUnit.Lang (HUnitFailure(..), FailureReason(Reason))
 
@@ -71,7 +73,6 @@ type T = Either String Int
 main :: IO ()
 main = hspec $ do
   describe "Simple matchers" $ do
-
     it "can match for equality" $ do
       match 5 (eq 5) `shouldBe` ok "is a value equal to 5" "5"
       match 0 (eq 1) `shouldBe` nok "is a value equal to 1" "0"
@@ -250,6 +251,16 @@ main = hspec $ do
         , MatchTree True "projection \"snd\"" (Just "(1,2)")
           [ ok "is a value equal to 2" "2" ]
         ]
+
+  describe "Projections" $ do
+    context "when used with ints" $ do
+      let checkTree val root = mtValue root == val && all (checkTree val) (mtSubnodes root)
+      it "invariant of direction" $ property $ \x ->
+        forAll (elements [Positive, Negative]) $ \dir ->
+          let matcher = projection "id" id (eq x)
+              tree = runIdentity $ matcher dir (Just $ Identity (x :: Int))
+              treeView = prettyPrint defaultPPOptions tree
+          in counterexample treeView $ checkTree (dir == Positive) tree
   
   describe "Container matching" $ do
     it "can check if container is empty" $ do
