@@ -240,6 +240,16 @@ main = hspec $ do
         [ nok "is a value < -1" "1"
         , nok "is a value > 1" "1"
         ]
+      match (1, 2) (negationOf $ allOf [ projection "fst" fst (eq 1)
+                                       , projection "snd" snd (eq 2)
+                                       ])
+        `shouldBe`
+        MatchTree False "not all of" (Just "(1,2)")
+        [ MatchTree True "projection \"fst\"" (Just "(1,2)")
+          [ ok "is a value equal to 1" "1" ]
+        , MatchTree True "projection \"snd\"" (Just "(1,2)")
+          [ ok "is a value equal to 2" "2" ]
+        ]
   
   describe "Container matching" $ do
     it "can check if container is empty" $ do

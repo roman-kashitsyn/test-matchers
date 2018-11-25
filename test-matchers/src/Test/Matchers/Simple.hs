@@ -235,7 +235,7 @@ aggregateWith :: (Show a, Applicative f)
               -> MatcherSetF f a
               -> MatcherF f a
 aggregateWith aggr descr matcherSet dir value =
-  let subnodesF = matchSetF matcherSet dir value
+  let subnodesF = matchSetF matcherSet Positive value
       msgF = sequenceA $ fmap (fmap display) value
   in liftA2 (\xs m -> MatchTree
                       (applyDirection dir (aggr $ map mtValue xs))
