@@ -15,6 +15,7 @@ limitations under the License.
 -}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ImplicitParams #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 import Test.Hspec
 
 import Data.String (IsString(..))
@@ -27,6 +28,8 @@ import Test.Matchers.HUnit
 import Test.QuickCheck (forAll, elements, property, counterexample)
 import qualified Test.Matchers.HUnit.Implicit as I
 import Test.HUnit.Lang (HUnitFailure(..), FailureReason(Reason))
+
+default (Integer, Double)
 
 data Tree a = Leaf a | Fork (Tree a) (Tree a) deriving (Show, Eq)
 
@@ -55,9 +58,6 @@ treeEq (Fork l r) = isForkWith (treeEq l) (treeEq r)
 ok :: Message -> Message -> MatchTree
 ok msg val = MatchTree True msg (Just val) []
 
-ok' :: Message -> MatchTree
-ok' msg = MatchTree True msg Nothing []
-
 nok :: Message -> Message -> MatchTree
 nok msg val = MatchTree False msg (Just val) []
 
@@ -67,8 +67,6 @@ nok' msg = MatchTree False msg Nothing []
 failureMessageIs :: Expectation -> String -> Expectation
 failureMessageIs test msg =
   test `shouldThrow` (\(HUnitFailure _ reason) -> reason == Reason msg)
-
-type T = Either String Int
 
 main :: IO ()
 main = hspec $ do
@@ -257,8 +255,8 @@ main = hspec $ do
       let checkTree val root = mtValue root == val && all (checkTree val) (mtSubnodes root)
       it "invariant of direction" $ property $ \x ->
         forAll (elements [Positive, Negative]) $ \dir ->
-          let matcher = projection "id" id (eq x)
-              tree = runIdentity $ matcher dir (Just $ Identity (x :: Int))
+          let m = projection "id" id (eq x)
+              tree = runIdentity $ m dir (Just $ Identity (x :: Int))
               treeView = prettyPrint defaultPPOptions tree
           in counterexample treeView $ checkTree (dir == Positive) tree
   
@@ -327,15 +325,15 @@ main = hspec $ do
          [nok' (fromString $ "is a value equal to " ++ show DivideByZero)])
 
   describe "README examples" $ do
-    let div :: Int -> Int -> Either String Int
-        div _ 0 = Left "Division by zero"
-        div x y = Right (x `quot` y)
+    let myDiv :: Int -> Int -> Either String Int
+        myDiv _ 0 = Left "Division by zero"
+        myDiv x y = Right (x `quot` y)
     it "works for positive case" $ do
-      div 5 0 `shouldMatch` (isLeftWith $ hasInfix "zero")
+      myDiv 5 0 `shouldMatch` (isLeftWith $ hasInfix "zero")
 
     let ?matchersOptionsAction = pure $ defaultPPOptions { ppMode = PlainText }
     it "works for negative case" $ do
-      div 5 0 `I.shouldMatch` (isRightWith $ eq 0)
+      myDiv 5 0 `I.shouldMatch` (isRightWith $ eq 0)
         `failureMessageIs`
         (intercalate "\n" [ "✘ prism \"Right\" ← <1>"
                           , "  ✘ is a value equal to 0"

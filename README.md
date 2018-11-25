@@ -13,15 +13,15 @@ HUnit assertions (e.g. [hspec](https://hspec.github.io) or
 ## Short example
 
 ```haskell
-div :: Int -> Int -> Either String Int
-div _ 0 = Left "Division by zero"
-div x y = Right (x `quot` y)
+myDiv :: Int -> Int -> Either String Int
+myDiv _ 0 = Left "Division by zero"
+myDiv x y = Right (x `quot` y)
 
 -- This test passes
-div 5 0 `shouldMatch` (leftIs $ hasInfix "zero")
+myDiv 5 0 `shouldMatch` (leftIs $ hasInfix "zero")
 
 -- This test fails
-div 5 0 `shouldMatch` (rightIs $ eq 0)
+myDiv 5 0 `shouldMatch` (rightIs $ eq 0)
 ```
 
 The failed test in the example above displays the following error
