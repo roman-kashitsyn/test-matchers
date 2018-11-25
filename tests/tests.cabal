@@ -22,3 +22,14 @@ test-suite hunit-matchers-test
                      , QuickCheck >=2.9
   default-language:    Haskell2010
   ghc-options:         -Wall
+
+test-suite tasty-matchers-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Tasty.hs
+  build-depends:       base >=4.8 && <5
+                     , test-matchers
+                     , tasty-matchers
+                     , tasty
+  default-language:    Haskell2010
+  ghc-options:         -Wall

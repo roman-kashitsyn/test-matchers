@@ -1,4 +1,4 @@
-# Revision history for hunit-matchers
+# Revision history for tasty-matchers
 
 ## 0.1.0.0  -- YYYY-mm-dd
 

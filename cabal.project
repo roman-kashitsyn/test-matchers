@@ -1,3 +1,4 @@
 packages: test-matchers/
           hunit-matchers/
+          tasty-matchers/
           tests/
