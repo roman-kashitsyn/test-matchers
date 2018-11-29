@@ -8,7 +8,7 @@ maintainer:          roman.kashitsyn@gmail.com
 copyright:           2018 Google LLC
 category:            Testing
 build-type:          Simple
-extra-source-files:  ChangeLog.md
+extra-source-files:  ChangeLog.md, README.md
 cabal-version:       >=1.10
 
 library

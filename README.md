@@ -6,9 +6,11 @@ Matchers](https://github.com/google/googletest/blob/master/googlemock/docs/Cheat
 The main purpose of the library is to make the error messages produced
 by test failures clearer and more useful.
 
-It easily integrates with any test framework capable of executing
-HUnit assertions (e.g. [hspec](https://hspec.github.io) or
-[tasty](https://github.com/feuerbach/tasty)).
+It easily integrates with test frameworks capable of executing HUnit assertions
+(e.g. [HUnit](https://github.com/hspec/HUnit#readme) or
+[hspec](https://hspec.github.io)) and
+[tasty](https://github.com/feuerbach/tasty). These integrations are provided by
+`hunit-matchers` and `tasty-matchers` packages.
 
 ## Short example
 
