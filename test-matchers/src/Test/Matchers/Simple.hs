@@ -98,16 +98,27 @@ module Test.Matchers.Simple
   , (&>)
   ) where
 
-import           Test.Matchers.Message
-
-import           Control.Applicative   (liftA2)
-import           Control.Exception     (Exception (..), Handler (..),
-                                        SomeException, catches)
-import           Data.Foldable         (Foldable, foldMap, null, toList)
-import           Data.Functor.Identity (Identity (..), runIdentity)
-import           Data.List             (isInfixOf, isPrefixOf, isSuffixOf)
-import           Data.Traversable      (Traversable)
-import           Data.Typeable         (typeOf)
+import Test.Matchers.Message
+  ( Message
+  , display
+  , display
+  , fancyChar
+  , hsep
+  , str
+  , symbol
+  )
+import Control.Applicative   (liftA2)
+import Control.Exception
+  ( Exception (..)
+  , Handler (..)
+  , SomeException
+  , catches
+  )
+import Data.Foldable         (Foldable, foldMap, null, toList)
+import Data.Functor.Identity (Identity (..), runIdentity)
+import Data.List             (isInfixOf, isPrefixOf, isSuffixOf)
+import Data.Traversable      (Traversable)
+import Data.Typeable         (typeOf)
 
 -- | The direction matcher works in.
 data Direction
@@ -169,15 +180,12 @@ newtype MatcherSetF f a = MatcherSetF { matchSetF :: Direction -> Maybe (f a) ->
 -- values.
 type Matcher a    = MatcherF Identity a
 
--- | Should the fancy colors be used when pretty-printing mismatches.
-data ColorMode = Color | NoColor
-
 -- | The result of a matcher invocation.
 data MatchTree
   = MatchTree
     { mtValue          :: !Bool -- ^ Whether the match was successful.
     , mtDescription    :: Message -- ^ Message describing this matcher.
-    , mtMatchedValue   :: Maybe Message -- ^ Textual representation of the value matched.
+    , mtMatchedValue   :: Maybe String -- ^ Textual representation of the value matched.
     , mtSubnodes       :: [MatchTree] -- ^ Submatchers used to produce this result.
     } deriving (Show)
 
@@ -207,25 +215,16 @@ pickDescription :: Direction -> (Message, Message) -> Message
 pickDescription Positive = fst
 pickDescription Negative = snd
 
-noValueMessage :: Message
-noValueMessage = "nothing"
-
-inputToDocF :: (Applicative f, Show a) => Maybe (f a) -> f Message
-inputToDocF Nothing   = pure noValueMessage
-inputToDocF (Just fa) = display <$> fa
-
-inputToDoc :: (Show a) => Maybe a -> Message
-inputToDoc = maybe noValueMessage display
-
 -- | Makes a matcher from a predicate and it's description.
-predicate :: (Show a, Applicative f)
-              => (a -> Bool) -- ^ Predicate to use for matching
-              -> (Message, Message) -- ^ Messages describing this predicate and it's negationOf.
-              -> MatcherF f a
+predicate
+  :: (Show a, Applicative f)
+  => (a -> Bool) -- ^ Predicate to use for matching
+  -> (Message, Message) -- ^ Messages describing this predicate and it's negationOf.
+  -> MatcherF f a
 predicate predicate descr dir v =
   case v of
     Nothing -> pure $ MatchTree False msg Nothing []
-    Just fa -> (\x -> MatchTree (applyDirection dir (predicate x)) msg (Just $ display x) []) <$> fa
+    Just fa -> (\x -> MatchTree (applyDirection dir (predicate x)) msg (Just $ show x) []) <$> fa
   where msg = pickDescription dir descr
 
 
@@ -236,7 +235,7 @@ aggregateWith :: (Show a, Applicative f)
               -> MatcherF f a
 aggregateWith aggr descr matcherSet dir value =
   let subnodesF = matchSetF matcherSet Positive value
-      msgF = sequenceA $ fmap (fmap display) value
+      msgF = sequenceA $ fmap (fmap show) value
   in liftA2 (\xs m -> MatchTree
                       (applyDirection dir (aggr $ map mtValue xs))
                       (pickDescription dir descr)
@@ -312,7 +311,7 @@ floatApproxEq value = predicate approxEq (descr, descr_)
 gt :: (Ord a, Show a, Applicative f)
    => a
    -> MatcherF f a
-gt = cmpSatisfies (== GT) ">" "≤"
+gt = cmpSatisfies (== GT) (str ">") (fancyChar '≤' "<=")
 
 -- | Mathcer that succeeds if the argument is /greater than or equal to/
 -- the specified value.
@@ -326,7 +325,7 @@ ge = negationOf . lt
 lt :: (Ord a, Show a, Applicative f)
    => a
    -> MatcherF f a
-lt = cmpSatisfies (== LT) "<" "≥"
+lt = cmpSatisfies (== LT) (str "<") (fancyChar '≥' ">=")
 
 -- | Mathcer that succeeds if the argument is /less than or equal to/
 -- the specified value.
@@ -339,13 +338,13 @@ le = negationOf . gt
 cmpSatisfies
   :: (Ord a, Show a, Applicative f)
   => (Ordering -> Bool) -- ^ Predicate matching the outcome of 'compare'.
-  -> String -- ^ Comparison symbol describing the matcher.
-  -> String -- ^ Comparison symbol describing the negationOf of the matcher.
+  -> Message -- ^ Comparison symbol describing the matcher.
+  -> Message -- ^ Comparison symbol describing the negationOf of the matcher.
   -> a -- ^ Value to compare against.
   -> MatcherF f a
 cmpSatisfies p symbol symbol_ bound = predicate (\x -> p $ compare x bound) (descr, descr_)
-  where descr  = hsep ["is", "a", "value", pretty symbol,  display bound]
-        descr_ = hsep ["is", "a", "value", pretty symbol_, display bound]
+  where descr  = hsep ["is", "a", "value", symbol,  display bound]
+        descr_ = hsep ["is", "a", "value", symbol_, display bound]
 
 -- | Matcher that always succeeds.
 anything :: (Show a, Applicative f) => MatcherF f a
@@ -451,11 +450,11 @@ each m dir val =
     Just fta -> do
       ta <- fta
       if null ta
-        then mkEmpty (applyDirection dir True) (Just $ display ta) <$> fTree
+        then mkEmpty (applyDirection dir True) (Just $ show ta) <$> fTree
         else do subtrees <- traverse (m Positive . Just . pure) (toList ta)
                 pure $ MatchTree (applyDirection dir $ all mtValue subtrees)
                        descr
-                       (Just $ display ta)
+                       (Just $ show ta)
                        subtrees
 
   where descr = pickDescription dir (descrPos, descrNeg)
@@ -477,7 +476,7 @@ elementsAre matchers dir = maybe emptyTree mkTree
     mkTree fitems = do
       items <- fitems
       subnodes <- sequenceA $ go (toList items) matchers 0
-      return $ MatchTree (applyDirection dir (all mtValue subnodes)) name (Just $ display items) subnodes
+      return $ MatchTree (applyDirection dir (all mtValue subnodes)) name (Just $ show items) subnodes
 
     numMatchers = length matchers
     name  = hsep ["container", "such", "that"]
@@ -488,10 +487,10 @@ elementsAre matchers dir = maybe emptyTree mkTree
     sizeMessage  = hsep ["number", "of", "elements", "is", display numMatchers]
 
     go (x:xs) (m:ms) n = m Positive (Just $ pure x) : go xs ms (n + 1)
-    go [] [] n = [pure $ MatchTree True sizeMessage (Just $ display n) []]
-    go moreItems@(x:_) [] n = [pure $ MatchTree False sizeMessage (Just $ display $ n + length moreItems) []]
+    go [] [] n = [pure $ MatchTree True sizeMessage (Just $ show n) []]
+    go moreItems@(x:_) [] n = [pure $ MatchTree False sizeMessage (Just $ show $ n + length moreItems) []]
     go [] ms@(m:_) n = [ m Positive Nothing
-                       , pure $ MatchTree False sizeMessage (Just $ display n) []
+                       , pure $ MatchTree False sizeMessage (Just $ show n) []
                        ]
 
 -- | Matcher that succeeds if the argument starts with the specified
@@ -611,7 +610,7 @@ projectionWithSet
 projectionWithSet name proj set dir value =
   let subnodesF = matchSetF (contramapSet proj set) dir value
       descr  = hsep ["projection", symbol name]
-      msgF = sequenceA $ fmap (fmap display) value
+      msgF = sequenceA $ fmap (fmap show) value
   in liftA2 (\xs msg -> MatchTree (all mtValue xs) descr msg xs)
      subnodesF msgF
 
@@ -642,7 +641,7 @@ prismWithSet
 prismWithSet name p set dir v =
   case v of
     Nothing -> MatchTree False descr Nothing <$> matchSetF set dir Nothing
-    Just fs -> (\subtrees s -> MatchTree (all mtValue subtrees) descr (Just $ display s) subtrees)
+    Just fs -> (\subtrees s -> MatchTree (all mtValue subtrees) descr (Just $ show s) subtrees)
       <$> matchSetF set dir (sequenceA $ fmap p fs)
       <*> fs
   where descr = hsep ["prism", symbol name]
@@ -683,8 +682,9 @@ throws exMatcher dir maybeAction = do
         NoExn -> return
           $ MatchTree False d Nothing [runIdentity $ exMatcher Positive Nothing]
         ExpectedExn exn -> return $ let node = match exn exMatcher
-                                    in MatchTree (applyDirection dir (mtValue node)) d (Just $ display exn) [node]
-        OtherExn exn -> return $ MatchTree (applyDirection dir False) d (Just $ display exn) [runIdentity $ exMatcher Positive Nothing]
+                                    in MatchTree (applyDirection dir (mtValue node)) d (Just $ show exn) [node]
+        OtherExn exn -> return $ MatchTree (applyDirection dir False) d (Just $ show exn)
+                                 [runIdentity $ exMatcher Positive Nothing]
 
 -- | Runs a matcher on the given effectful value and returns the
 -- `MatchTree` wrapped into the same effect.

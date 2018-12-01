@@ -31,12 +31,14 @@ module Test.Matchers.Render
   , prettyPrint
   ) where
 
-import Test.Matchers.Message
+import Test.Matchers.Message (Message(..))
 import Test.Matchers.Simple
+import qualified Test.Matchers.Message as MSG
 
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Data.Text.Lazy (unpack)
+import Data.Text.Prettyprint.Doc ((<>), (<+>), Doc)
 import Data.Text.Prettyprint.Doc.Render.Terminal (AnsiStyle)
 import qualified Data.Text.Prettyprint.Doc as PP
 import qualified Data.Text.Prettyprint.Doc.Render.Terminal as PPT
@@ -45,6 +47,18 @@ import qualified Data.Text.Prettyprint.Doc.Render.Terminal as PPT
 -- decorations as well.
 data Mode = PlainText | RichText
   deriving (Eq, Show, Ord, Enum, Bounded)
+
+-- | Abstract styles used by the library. The actual representation is
+-- controlled by the rendering.
+data Style
+  = PlainStyle -- ^ Default style of the output.
+  | ValueStyle -- ^ The style to use for printing values having a Show instance.
+  | SymbolStyle -- ^ The style to use for printing symbols.
+  | RefStyle -- ^ The style to use for references.
+  | SuccessStyle -- ^ The style to use for successfully completed matchers.
+  | FailureStyle -- ^ The style to use for failed matchers.
+  deriving (Eq, Show, Enum, Bounded)
+
 
 -- | Options controlling the pretty-printing.
 data PPOptions
@@ -102,30 +116,23 @@ asks view = RState $ \r s -> (view r, s)
 
 -- end of the State implementation
 
-newtype DisplayMsg = DisplayMsg { unDisplay :: Message } deriving (Show)
-
-instance Eq DisplayMsg where
-  x == y = show x == show y
-
-instance Ord DisplayMsg where
-  compare x y = compare (show x) (show y)
-
-type RenderState = RState PPOptions (M.Map DisplayMsg Int)
+type RenderState = RState PPOptions (M.Map String Int)
 
 -- | Renders the match tree as a document.  The function tries to be
 -- pick the most readable format to represent the failure.
-treeToMessage :: PPOptions -> MatchTree -> Message
+treeToMessage :: PPOptions -> MatchTree -> Doc Style
 treeToMessage = renderAsTree
 
 -- | Converts generic message styles into styles suitable for ANSI
 -- terminal.
 toAnsiStyle :: Style -> AnsiStyle
 toAnsiStyle style = case style of
-                      Plain -> mempty
-                      Value -> PPT.italicized
-                      Symbol -> PPT.italicized
-                      Success -> PPT.colorDull PPT.Green
-                      Failure -> PPT.bold <> PPT.colorDull PPT.Red
+                      PlainStyle -> mempty
+                      ValueStyle -> PPT.italicized
+                      SymbolStyle -> PPT.italicized
+                      RefStyle -> PPT.bold
+                      SuccessStyle -> PPT.colorDull PPT.Green
+                      FailureStyle -> PPT.bold <> PPT.colorDull PPT.Red
 
 -- | Renders the match tree as a textual tree: nested matchers have
 -- higher indentation and the color indicates success or failure of
@@ -142,22 +149,20 @@ toAnsiStyle style = case style of
 --
 -- Values that are too long are represented as references and are
 -- printed in the bottom of the tree.
-
-renderAsTree :: PPOptions -> MatchTree -> Message
+renderAsTree :: PPOptions -> MatchTree -> Doc Style
 renderAsTree opts t =
   if M.null refs
   then doc
-  else doc <> hardline <> "where:" <> hardline <> indent 2 (renderRefs refs)
+  else doc <> PP.hardline <> "where:" <> PP.hardline <> PP.indent 2 (renderRefs refs)
   where
     (doc, refs) = runRState (renderAsTreeWithRefs t) opts M.empty
     swap (x, y) = (y, x)
-    renderRefs = vsep . map renderRef . IM.toList . IM.fromList . map swap . M.toList
-    renderRef (id, val) = displayRef id <+> unDisplay val
+    renderRefs = PP.vsep . map renderRef . IM.toList . IM.fromList . map swap . M.toList
+    renderRef (refId, val) = displayRef refId <+> PP.pretty val
 
-allocateId :: Message -> RenderState Int
-allocateId str = do
+allocateId :: String -> RenderState Int
+allocateId msg = do
   m <- get
-  let msg = DisplayMsg str
   case M.lookup msg m of
     Just i -> return i
     Nothing -> do
@@ -165,31 +170,50 @@ allocateId str = do
       put $ M.insert msg n m
       return n
 
-renderAsTreeWithRefs :: MatchTree -> RenderState Message
+lengthWithinLimit :: Int -> String -> Bool
+lengthWithinLimit n s = case splitAt n s of
+                          (_, []) -> True
+                          _ -> False
+
+messageToDoc :: PPOptions -> Message -> Doc Style
+messageToDoc opts msg
+  = case msg of
+      Empty -> mempty
+      Space -> PP.space
+      Str s -> PP.pretty s
+      Value v -> PP.annotate ValueStyle $ PP.pretty v
+      Symbol s -> PP.annotate SymbolStyle $ PP.pretty s
+      FancyChar c s -> if ppUseUnicode opts then PP.pretty c else PP.pretty s
+      HCat ms -> PP.hcat $ map (messageToDoc opts) ms
+
+renderAsTreeWithRefs :: MatchTree -> RenderState (Doc Style)
 renderAsTreeWithRefs (MatchTree res descr val subnodes) = do
   doc <- lineDoc
   subtreeDocs <- traverse renderAsTreeWithRefs subnodes
-  let subtreeDoc = indent 2 (vsep subtreeDocs)
-  let prefix = annotate msgStyle (if res then check else cross)
-  return $  prefix <+> if null subnodes then doc else vsep [doc, subtreeDoc]
-  where msgStyle = if res then Success else Failure
-        aDescr = annotate msgStyle descr
+  opts <- ask
+  let subtreeDoc = PP.indent 2 (PP.vsep subtreeDocs)
+  let prefix = PP.annotate msgStyle $ messageToDoc opts $ if res then check else cross
+  return $  prefix <+> if null subnodes then doc else PP.vsep [doc, subtreeDoc]
+  where msgStyle = if res then SuccessStyle else FailureStyle
         lineDoc = do
-          limit <- asks ppMaxValueWidth
+          opts <- ask
+          let limit = ppMaxValueWidth opts
+              arrowDoc = messageToDoc opts arrow
+              aDescr = messageToDoc opts descr
           case val of
             Nothing -> return aDescr
-            Just valMsg | length (show valMsg) > limit -> do
-                            id <- allocateId valMsg
-                            return $ hsep [aDescr, arrow, displayRef id]
-            Just valMsg -> return $ hsep [aDescr, arrow, valMsg]
+            Just valMsg | not (lengthWithinLimit limit valMsg) -> do
+                            refId <- allocateId valMsg
+                            return $ PP.hsep [aDescr, arrowDoc, displayRef refId]
+            Just valMsg -> return $ PP.hsep [aDescr, arrowDoc, PP.pretty valMsg]
 
 check, cross, arrow :: Message
-check = "✔"
-cross = "✘"
-arrow = "←"
+check = MSG.fancyChar '✔' "[v]"
+cross = MSG.fancyChar '✘' "[x]"
+arrow = MSG.fancyChar '←' "<-"
 
-displayRef :: Int -> Message
-displayRef ref = hcat ["<", pretty ref, ">"]
+displayRef :: Int -> Doc Style
+displayRef ref = PP.annotate RefStyle $ PP.hcat ["<", PP.pretty ref, ">"]
 
 -- | Pretty-prints the match tree according to the options provided.
 prettyPrint
