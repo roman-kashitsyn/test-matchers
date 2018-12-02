@@ -20,13 +20,11 @@ import Test.Hspec
 
 import Data.String (IsString(..))
 import Data.List (intercalate)
-import Data.Functor.Identity (Identity (..), runIdentity)
 import GHC.IO.Exception
 import Control.Exception
 import Test.Matchers
 import Test.Matchers.Message
 import Test.Matchers.HUnit
-import Test.QuickCheck (forAll, elements, property, counterexample)
 import qualified Test.Matchers.HUnit.Implicit as I
 import Test.HUnit.Lang (HUnitFailure(..), FailureReason(Reason))
 
@@ -268,16 +266,6 @@ main = hspec $ do
         , MatchTree True "projection \"snd\"" (Just "(1,2)")
           [ ok "is a value equal to 2" "2" ]
         ]
-
-  describe "Projections" $ do
-    context "when used with ints" $ do
-      let checkTree val root = mtValue root == val && all (checkTree val) (mtSubnodes root)
-      it "invariant of direction" $ property $ \x ->
-        forAll (elements [Positive, Negative]) $ \dir ->
-          let m = projection "id" id (eq x)
-              tree = runIdentity $ m dir (Just $ Identity (x :: Int))
-              treeView = prettyPrint defaultPPOptions tree
-          in counterexample treeView $ checkTree (dir == Positive) tree
   
   describe "Container matching" $ do
     it "can check if container is empty" $ do
@@ -344,7 +332,7 @@ main = hspec $ do
         `shouldReturn`
         (MatchTree False
          "action throwing ArithException that"
-         (Just $ fromString $ show unsupportedOperation)
+         (Just $ show unsupportedOperation)
          [nok' (fromString $ "is a value equal to " ++ show DivideByZero)
          ])
 
