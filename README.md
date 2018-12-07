@@ -88,6 +88,13 @@ isForkWith matchL matchA matchR
   = M.prism "Fork" (preview _Fork) (M.tuple3 matchLeft matchA matchR)
 ```
 
+# Related resources
+
+There is a talk describing the motivation behind the library and some
+design choices made
+([video](https://www.youtube.com/watch?v=6F_KYfe442Y),
+[slides](https://github.com/meiersi/HaskellerZ/blob/master/meetups/2018-10-25-embracing-the-failure/Slides.pdf)).
+
 # Disclaimer
 
 This is not an official Google product.
