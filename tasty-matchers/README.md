@@ -53,3 +53,31 @@ tests = let user = User 5 "name"
 main :: IO ()
 main = defaultMain tests
 ```
+
+# Command-line options
+
+When you use `tasty-matchers` to write your tests, the test binaries
+built with `tasty` provide the following options controlling the
+appearance of the error messages:
+
+<table>
+<thead>
+  <tr>
+    <th>Option name</th>
+    <th>Possible values</th>
+    <th>Effect</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td>color</td>
+    <td><ul><li>never<li>always<li>auto</ul></td>
+    <td>When to use colors and formatting (bold, italics) in error messages</td>
+  </tr>
+  <tr>
+    <td>unicode</td>
+    <td><ul><li>never<li>always<li>auto</ul></td>
+    <td>When to use fancy unicode symbols inside of error messages</td>
+  </tr>
+</tbody>
+</table>

@@ -34,8 +34,9 @@ module Test.Matchers.Tasty
   , testCase
   ) where
 
-import Data.Typeable (Typeable)
+import Data.Char (toLower)
 import Data.Proxy (Proxy(Proxy))
+import Data.Typeable (Typeable)
 import Test.Matchers
   ( MatchTree
   , Matcher
@@ -51,27 +52,46 @@ import Test.Matchers.Render
   , defaultPPOptions
   , prettyPrint
   )
+import Test.Tasty.Ingredients.ConsoleReporter (UseColor(Never, Always, Auto))
 import Test.Tasty.Options
-  ( OptionSet
+  ( IsOption(..)
+  , OptionSet
   , OptionDescription (Option)
   , lookupOption
+  , mkOptionCLParser
   )
-import Test.Tasty.Ingredients.ConsoleReporter
-  ( UseColor(Never, Always, Auto))
 import Test.Tasty.Providers
   ( IsTest(run, testOptions)
   , TestTree
+  , singleTest
   , testPassed
   , testFailed
-  , singleTest
   )
+import Options.Applicative (metavar)
+
+data UseUnicode
+  = NeverUseUnicode
+  | AlwaysUseUnicode
+  | AutoUseUnicode
+  deriving (Eq, Show, Ord, Enum, Typeable)
+
+instance IsOption UseUnicode where
+  defaultValue = AutoUseUnicode
+  parseValue s = lookup (map toLower s) [ ("never", NeverUseUnicode)
+                                        , ("always", AlwaysUseUnicode)
+                                        , ("auto", AutoUseUnicode)
+                                        ]
+  optionName = return "unicode"
+  optionHelp = return
+    "When to use unicode characters in the error messages (default: 'auto')"
+  optionCLParser = mkOptionCLParser $ metavar "never|always|auto"
 
 newtype MatchersTest
   = MatchersTest { getTree :: IO MatchTree }
   deriving (Typeable)
 
 instance IsTest MatchersTest where
-  testOptions = return [ Option (Proxy :: Proxy UseColor) ]
+  testOptions = return [Option (Proxy :: Proxy UseUnicode)]
   run optionSet t _progress = do
     tree <- getTree t
     if mtValue tree
@@ -79,14 +99,24 @@ instance IsTest MatchersTest where
       else do
         let ppOpts = applyOptions optionSet defaultPPOptions
         return $ testFailed (prettyPrint ppOpts tree)
-    
-applyOptions :: OptionSet -> PPOptions -> PPOptions
-applyOptions optSet opts =
+
+applyColor :: UseColor -> PPOptions -> PPOptions
+applyColor useColor opts =
   case useColor of
     Never -> opts { ppMode = PlainText }
     Always -> opts { ppMode = RichText }
     Auto -> opts
-  where useColor = lookupOption optSet
+
+applyUnicode :: UseUnicode -> PPOptions -> PPOptions
+applyUnicode useUnicode opts =
+  case useUnicode of
+    NeverUseUnicode -> opts { ppUseUnicode = False }
+    AlwaysUseUnicode -> opts { ppUseUnicode = True }
+    AutoUseUnicode -> opts
+
+applyOptions :: OptionSet -> PPOptions -> PPOptions
+applyOptions optSet =
+  applyColor (lookupOption optSet) . applyUnicode (lookupOption optSet)
 
 testCase :: String -> MatchersTest -> TestTree
 testCase = singleTest
