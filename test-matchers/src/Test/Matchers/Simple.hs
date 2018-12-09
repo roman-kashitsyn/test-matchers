@@ -101,7 +101,6 @@ module Test.Matchers.Simple
 import Test.Matchers.Message
   ( Message
   , display
-  , display
   , fancyChar
   , hsep
   , str
@@ -221,10 +220,10 @@ predicate
   => (a -> Bool) -- ^ Predicate to use for matching
   -> (Message, Message) -- ^ Messages describing this predicate and it's negationOf.
   -> MatcherF f a
-predicate predicate descr dir v =
+predicate p descr dir v =
   case v of
     Nothing -> pure $ MatchTree False msg Nothing []
-    Just fa -> (\x -> MatchTree (applyDirection dir (predicate x)) msg (Just $ show x) []) <$> fa
+    Just fa -> (\x -> MatchTree (applyDirection dir (p x)) msg (Just $ show x) []) <$> fa
   where msg = pickDescription dir descr
 
 
@@ -342,9 +341,9 @@ cmpSatisfies
   -> Message -- ^ Comparison symbol describing the negationOf of the matcher.
   -> a -- ^ Value to compare against.
   -> MatcherF f a
-cmpSatisfies p symbol symbol_ bound = predicate (\x -> p $ compare x bound) (descr, descr_)
-  where descr  = hsep ["is", "a", "value", symbol,  display bound]
-        descr_ = hsep ["is", "a", "value", symbol_, display bound]
+cmpSatisfies p sym sym_ bound = predicate (\x -> p $ compare x bound) (descr, descr_)
+  where descr  = hsep ["is", "a", "value", sym,  display bound]
+        descr_ = hsep ["is", "a", "value", sym_, display bound]
 
 -- | Matcher that always succeeds.
 anything :: (Show a, Applicative f) => MatcherF f a
@@ -460,7 +459,7 @@ each m dir val =
   where descr = pickDescription dir (descrPos, descrNeg)
         descrPos = hsep ["each", "element", "of", "the", "container"]
         descrNeg = hsep ["container", "has", "at", "least", "one", "element", "that"]
-        mkEmpty outcome val t = MatchTree outcome descr val [t]
+        mkEmpty outcome showedVal t = MatchTree outcome descr showedVal [t]
         fTree = m Positive Nothing
 
 -- | Checks that elements of the container are matched by the matchers
@@ -469,29 +468,28 @@ each m dir val =
 elementsAre :: (Foldable t, Monad f, Show (t a))
             => [MatcherF f a] -- ^ List of matchers for the elements of the list.
             -> MatcherF f (t a) -- ^ Matcher for the whole container.
-elementsAre matchers dir = maybe emptyTree mkTree
+elementsAre matcherList dir = maybe emptyTree mkTree
   where
-    emptyTree = MatchTree False descr Nothing <$> sequenceA (map (\m -> m Positive Nothing) matchers)
+    emptyTree = MatchTree False descr Nothing <$> sequenceA (map (\m -> m Positive Nothing) matcherList)
 
     mkTree fitems = do
       items <- fitems
-      subnodes <- sequenceA $ go (toList items) matchers 0
+      subnodes <- sequenceA $ go (toList items) matcherList 0
       return $ MatchTree (applyDirection dir (all mtValue subnodes)) name (Just $ show items) subnodes
 
-    numMatchers = length matchers
+    numMatchers = length matcherList
     name  = hsep ["container", "such", "that"]
     name_ = hsep ["container", "such", "that", "not", "all", "of"]
     descr = pickDescription dir (name, name_)
-    elems n = if n == 1 then "element" else "elements"
 
     sizeMessage  = hsep ["number", "of", "elements", "is", display numMatchers]
 
     go (x:xs) (m:ms) n = m Positive (Just $ pure x) : go xs ms (n + 1)
     go [] [] n = [pure $ MatchTree True sizeMessage (Just $ show n) []]
-    go moreItems@(x:_) [] n = [pure $ MatchTree False sizeMessage (Just $ show $ n + length moreItems) []]
-    go [] ms@(m:_) n = [ m Positive Nothing
-                       , pure $ MatchTree False sizeMessage (Just $ show n) []
-                       ]
+    go moreItems@(_:_) [] n = [pure $ MatchTree False sizeMessage (Just $ show $ n + length moreItems) []]
+    go [] (m:_) n = [ m Positive Nothing
+                    , pure $ MatchTree False sizeMessage (Just $ show n) []
+                    ]
 
 -- | Matcher that succeeds if the argument starts with the specified
 -- prefix.
