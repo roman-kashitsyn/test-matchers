@@ -31,34 +31,50 @@ will only be executed if the test fails.
 
 -}
 module Test.Matchers.HUnit.Implicit
-  ( optionsFromEnv
-  , getOptionsFromEnv
+  (
+  -- * Heuristics for capabilities detection
+    getOptionsFromEnv
+  , optionsFromEnv
+  -- * Runners for matchers
   , shouldMatch
   , shouldNotMatch
   , shouldMatchIO
   , shouldNotMatchIO
   ) where
 
-import Test.Matchers.Simple
-import Test.Matchers.Render
-
-import Data.List (isInfixOf)
-import Data.Char (toLower)
 import Control.Monad (unless)
+import Data.Char (toLower)
+import Data.List (isInfixOf)
 import System.Environment (getEnvironment)
-
 import Test.HUnit (Assertion, assertFailure)
+import Test.Matchers.Simple
+  ( Matcher
+  , MatcherF
+  , MatchTree
+  , match
+  , mtValue
+  , negationOf
+  , runMatcher
+  )
+import Test.Matchers.Render
+  ( Mode(PlainText)
+  , PPOptions
+  , defaultPPOptions
+  , ppMode
+  , ppUseUnicode
+  , prettyPrint
+  )
 
 -- | Adjusts the options based on the TERM environment variable.
 applyTerm :: Maybe String -> PPOptions -> PPOptions
-applyTerm (Just tm) opts | isKnownDumb tm = opts { ppMode = PlainText }
-  where isKnownDumb tm = tm `elem` ["dumb"] || "emacs" `isInfixOf` tm
+applyTerm (Just term) opts | isKnownDumb term = opts { ppMode = PlainText }
+  where isKnownDumb t = t == "dumb" || "emacs" `isInfixOf` t
 applyTerm _ opts = opts -- Assume most terminals support ANSI escape codes
 
 -- | Adjusts the options based on the LANG environment variable.
 applyLang :: Maybe String -> PPOptions -> PPOptions
 applyLang (Just lang) opts | hasUnicode lang = opts
-  where hasUnicode lang = "utf" `isInfixOf` (map toLower lang)
+  where hasUnicode l = "utf" `isInfixOf` (map toLower l)
 applyLang _ opts = opts { ppUseUnicode = False }
 
 -- | Deduces pretty-printing options from the given environment.

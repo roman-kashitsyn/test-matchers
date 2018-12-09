@@ -37,7 +37,6 @@ module Test.Matchers.HUnit
 import qualified Test.Matchers.HUnit.Implicit as I
 
 import Test.Matchers.Simple (Matcher, MatcherF)
-import Test.Matchers.Render (defaultPPOptions)
 import Test.HUnit (Assertion)
 
 -- | Checks that a pure value is matched by the given matcher.
