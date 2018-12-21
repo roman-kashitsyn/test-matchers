@@ -74,7 +74,7 @@ applyTerm _ opts = opts -- Assume most terminals support ANSI escape codes
 -- | Adjusts the options based on the LANG environment variable.
 applyLang :: Maybe String -> PPOptions -> PPOptions
 applyLang (Just lang) opts | hasUnicode lang = opts
-  where hasUnicode l = "utf" `isInfixOf` (map toLower l)
+  where hasUnicode l = "utf" `isInfixOf` map toLower l
 applyLang _ opts = opts { ppUseUnicode = False }
 
 -- | Deduces pretty-printing options from the given environment.
@@ -94,7 +94,7 @@ treeToAssertion :: IO PPOptions -> MatchTree -> Assertion
 treeToAssertion optsAction tree =
   unless (mtValue tree) $ do
     opts <- optsAction
-    (assertFailure $ prettyPrint opts tree)
+    assertFailure $ prettyPrint opts tree
 
 shouldMatch
   :: (?matchersOptionsAction :: IO PPOptions)

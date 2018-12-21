@@ -200,13 +200,13 @@ makeFullTree
   -> a
   -> [MatchTree]
   -> MatchTree
-makeFullTree r m v sn = MatchTree r m [] (Just $ show v) sn
+makeFullTree r m v = MatchTree r m [] (Just $ show v)
 
 makeEmptyTree
   :: Message
   -> [MatchTree]
   -> MatchTree
-makeEmptyTree m sn = MatchTree False m [] Nothing sn
+makeEmptyTree m = MatchTree False m [] Nothing
 
 transformTree
   :: (Functor f)

@@ -29,10 +29,10 @@ data User
     } deriving (Eq, Show)
 
 hasUserName :: (Monad f) => MatcherF f String -> MatcherF f User
-hasUserName matchName = projection "userName" userName matchName
+hasUserName = projection "userName" userName
 
 hasUserId :: (Monad f) => MatcherF f Int -> MatcherF f User
-hasUserId matchId = projection "userId" userId matchId
+hasUserId = projection "userId" userId
 
 isUserWith
   :: (Monad f)

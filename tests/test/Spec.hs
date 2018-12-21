@@ -16,6 +16,7 @@ limitations under the License.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-# ANN module "HLint: ignore Redundant do" #-}
 import Test.Hspec
 
 import Data.String (IsString(..))
@@ -82,11 +83,11 @@ nok' :: Message -> MatchTree
 nok' msg = MatchTree False msg [] Nothing []
 
 mtOk, mtNok :: Message -> Maybe String -> [MatchTree] -> MatchTree
-mtOk msg mval sub = MatchTree True msg [] mval sub
-mtNok msg mval sub = MatchTree False msg [] mval sub
+mtOk msg = MatchTree True msg []
+mtNok msg = MatchTree False msg []
 
 shouldBeEquiv :: HasCallStack => MatchTree -> MatchTree -> Expectation
-shouldBeEquiv lhs rhs = (simplifyTree lhs) `shouldBe` (simplifyTree rhs)
+shouldBeEquiv lhs rhs = simplifyTree lhs `shouldBe` simplifyTree rhs
 
 failureMessageIs :: Expectation -> String -> Expectation
 failureMessageIs test msg =
@@ -289,11 +290,11 @@ main = hspec $ do
 
   describe "Test.HUnit integration" $ do
 
-    it "can use `shouldMatch` for assertions" $ do
-      ("a" :: String, 5) `shouldMatch` (tuple2 (elementsAre [eq 'a']) (gt 0))
+    it "can use `shouldMatch` for assertions" $
+      ("a" :: String, 5) `shouldMatch` tuple2 (elementsAre [eq 'a']) (gt 0)
 
-    it "can run `shouldMatchIO` for monad assertions" $ do
-      (pure 5) `shouldMatchIO` (gt 0)
+    it "can run `shouldMatchIO` for monad assertions" $
+      pure 5 `shouldMatchIO` gt 0
 
   describe "Tree printing" $ do
     let ?matchersOptionsAction = pure $ defaultPPOptions { ppMode = PlainText }
@@ -322,57 +323,60 @@ main = hspec $ do
   
   describe "Exception matching" $ do
 
-    it "can match exceptions as normal values" $ do
-      (ioError unsupportedOperation) `shouldMatchIO`
-        (throws $ projection "ioe_type" ioe_type (eq UnsupportedOperation))
+    it "can match exceptions as normal values" $
+      ioError unsupportedOperation `shouldMatchIO`
+        throws $ projection "ioe_type" ioe_type (eq UnsupportedOperation)
 
-    it "can match any exception" $ do
+    it "can match any exception" $
       ioError unsupportedOperation `shouldMatchIO`
         throws (anything :: Matcher SomeException)
 
-    it "does not rethrow unmatched exception" $ do
+    it "does not rethrow unmatched exception" $
       fmap simplifyTree (throws (eq DivideByZero) `runMatcher` ioError unsupportedOperation)
         `shouldReturn`
-        (mtNok
-         "action throwing ArithException that"
-         (Just $ show unsupportedOperation)
-         [nok' (fromString $ "is a value equal to " ++ show DivideByZero)
-         ])
-
-    it "reports error when no exception thrown" $ do
-      fmap simplifyTree (throws (eq DivideByZero) `runMatcher` (pure 0)) `shouldReturn`
-        (mtNok
+        mtNok
         "action throwing ArithException that"
-         Nothing
-         [nok' (fromString $ "is a value equal to " ++ show DivideByZero)])
+        (Just $ show unsupportedOperation)
+        [nok' (fromString $ "is a value equal to " ++ show DivideByZero)]
+
+    it "reports error when no exception thrown" $
+      fmap simplifyTree (throws (eq DivideByZero) `runMatcher` pure 0) `shouldReturn`
+        mtNok
+        "action throwing ArithException that"
+        Nothing
+        [nok' (fromString $ "is a value equal to " ++ show DivideByZero)]
 
   describe "README examples" $ do
     let myDiv :: Int -> Int -> Either String Int
         myDiv _ 0 = Left "Division by zero"
         myDiv x y = Right (x `quot` y)
-    it "works for positive case" $ do
-      myDiv 5 0 `shouldMatch` (isLeftWith $ hasInfix "zero")
+
+    it "works for positive case" $
+      myDiv 5 0 `shouldMatch` isLeftWith (hasInfix "zero")
 
     let ?matchersOptionsAction = pure $ defaultPPOptions { ppMode = PlainText }
-    it "works for negative case" $ do
-      myDiv 5 0 `I.shouldMatch` (isRightWith $ eq 0)
+
+    it "works for negative case" $
+      myDiv 5 0 `I.shouldMatch` isRightWith (eq 0)
         `failureMessageIs`
-        (intercalate "\n" [ "✘ prism \"Right\" ← <1>"
-                          , "  ✘ is a value equal to 0"
-                          , "where:"
-                          , "  <1> Left \"Division by zero\""
-                          ])
+        intercalate "\n" [ "✘ prism \"Right\" ← <1>"
+                         , "  ✘ is a value equal to 0"
+                         , "where:"
+                         , "  <1> Left \"Division by zero\""
+                         ]
 
   describe "Custom matchers" $ do
     it "can match trees" $ do
-      let t = (Fork (Fork (Leaf 5) (Leaf 7)) (Leaf 10))
+      let t = Fork (Fork (Leaf 5) (Leaf 7)) (Leaf 10)
       t `shouldMatch` treeEq t
 
-    it "can fuse prisms with all of" $ do
+    it "can fuse prisms with all of" $
       match (Fork (Leaf 1) (Leaf 2)) (isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 2)) `shouldBeEquiv`
         mtOk "prism \"Fork\"" (Just "Fork (Leaf 1) (Leaf 2)")
-        [ MatchTree True "prism \"Leaf\"" ["left"] (Just "Leaf 1") [ok "is a value equal to 1" "1"]
-        , MatchTree True "prism \"Leaf\"" ["right"] (Just "Leaf 2") [ok "is a value equal to 2" "2"]
+        [ MatchTree True "prism \"Leaf\"" ["left"] (Just "Leaf 1")
+          [ok "is a value equal to 1" "1"]
+        , MatchTree True "prism \"Leaf\"" ["right"] (Just "Leaf 2")
+          [ok "is a value equal to 2" "2"]
         ]
 
   describe "Pretty-printing options" $ do
