@@ -34,7 +34,6 @@ module Test.Matchers.Simple
   , Matcher
   , MatchTree(..)
   , Direction(..)
-
   , predicate
 
   -- * Matchers for 'Eq' and 'Ord' types
@@ -66,6 +65,7 @@ module Test.Matchers.Simple
   , andAlso
   , orElse
   , contramap
+  , labeled
 
   -- * Matchers for sequences
   , isEmpty
@@ -184,20 +184,36 @@ data MatchTree
   = MatchTree
     { mtValue          :: !Bool -- ^ Whether the match was successful.
     , mtDescription    :: Message -- ^ Message describing this matcher.
+    , mtLabels         :: [String] -- ^ List of labels attached to the matcher.
     , mtMatchedValue   :: Maybe String -- ^ Textual representation of the value matched.
     , mtSubnodes       :: [MatchTree] -- ^ Submatchers used to produce this result.
-    } deriving (Show)
-
-instance Eq MatchTree where
-  (MatchTree outcome descr val subs) == (MatchTree outcome' descr' val' subs') =
-    outcome == outcome'
-    && show descr == show descr'
-    && show val == show val'
-    && subs == subs'
+    } deriving (Show, Eq)
 
 instance (Applicative f) => Monoid (MatcherSetF f a) where
   mempty = MatcherSetF $ const $ const $ pure []
   mappend (MatcherSetF l) (MatcherSetF r) = MatcherSetF $ \dir x -> liftA2 mappend (l dir x) (r dir x)
+
+makeFullTree
+  :: (Show a)
+  => Bool
+  -> Message
+  -> a
+  -> [MatchTree]
+  -> MatchTree
+makeFullTree r m v sn = MatchTree r m [] (Just $ show v) sn
+
+makeEmptyTree
+  :: Message
+  -> [MatchTree]
+  -> MatchTree
+makeEmptyTree m sn = MatchTree False m [] Nothing sn
+
+transformTree
+  :: (Functor f)
+  => (MatchTree -> MatchTree)
+  -> MatcherF f a
+  -> MatcherF f a
+transformTree f = fmap (fmap (fmap f))
 
 -- | Changes the direction to it's opposite.
 flipDirection :: Direction -> Direction
@@ -222,8 +238,8 @@ predicate
   -> MatcherF f a
 predicate p descr dir v =
   case v of
-    Nothing -> pure $ MatchTree False msg Nothing []
-    Just fa -> (\x -> MatchTree (applyDirection dir (p x)) msg (Just $ show x) []) <$> fa
+    Nothing -> pure $ makeEmptyTree msg []
+    Just fa -> (\x -> makeFullTree (applyDirection dir (p x)) msg x []) <$> fa
   where msg = pickDescription dir descr
 
 
@@ -238,6 +254,7 @@ aggregateWith aggr descr matcherSet dir value =
   in liftA2 (\xs m -> MatchTree
                       (applyDirection dir (aggr $ map mtValue xs))
                       (pickDescription dir descr)
+                      []
                       m xs)
      subnodesF msgF
 
@@ -445,21 +462,20 @@ each
   -> MatcherF f (t a) -- ^ Matcher for the whole container.
 each m dir val =
   case val of
-    Nothing -> mkEmpty False Nothing <$> fTree
+    Nothing -> makeEmptyTree descr . pure <$> fTree
     Just fta -> do
       ta <- fta
       if null ta
-        then mkEmpty (applyDirection dir True) (Just $ show ta) <$> fTree
+        then mkEmpty (applyDirection dir True) ta <$> fTree
         else do subtrees <- traverse (m Positive . Just . pure) (toList ta)
-                pure $ MatchTree (applyDirection dir $ all mtValue subtrees)
-                       descr
-                       (Just $ show ta)
-                       subtrees
+                pure $ makeFullTree
+                       (applyDirection dir $ all mtValue subtrees)
+                       descr ta subtrees
 
   where descr = pickDescription dir (descrPos, descrNeg)
         descrPos = hsep ["each", "element", "of", "the", "container"]
         descrNeg = hsep ["container", "has", "at", "least", "one", "element", "that"]
-        mkEmpty outcome showedVal t = MatchTree outcome descr showedVal [t]
+        mkEmpty outcome showedVal t = makeFullTree outcome descr showedVal [t]
         fTree = m Positive Nothing
 
 -- | Checks that elements of the container are matched by the matchers
@@ -470,12 +486,12 @@ elementsAre :: (Foldable t, Monad f, Show (t a))
             -> MatcherF f (t a) -- ^ Matcher for the whole container.
 elementsAre matcherList dir = maybe emptyTree mkTree
   where
-    emptyTree = MatchTree False descr Nothing <$> sequenceA (map (\m -> m Positive Nothing) matcherList)
+    emptyTree = makeEmptyTree descr <$> sequenceA (map (\m -> m Positive Nothing) matcherList)
 
     mkTree fitems = do
       items <- fitems
       subnodes <- sequenceA $ go (toList items) matcherList 0
-      return $ MatchTree (applyDirection dir (all mtValue subnodes)) name (Just $ show items) subnodes
+      return $ makeFullTree (applyDirection dir (all mtValue subnodes)) name items subnodes
 
     numMatchers = length matcherList
     name  = hsep ["container", "such", "that"]
@@ -485,10 +501,10 @@ elementsAre matcherList dir = maybe emptyTree mkTree
     sizeMessage  = hsep ["number", "of", "elements", "is", display numMatchers]
 
     go (x:xs) (m:ms) n = m Positive (Just $ pure x) : go xs ms (n + 1)
-    go [] [] n = [pure $ MatchTree True sizeMessage (Just $ show n) []]
-    go moreItems@(_:_) [] n = [pure $ MatchTree False sizeMessage (Just $ show $ n + length moreItems) []]
+    go [] [] n = [pure $ makeFullTree True sizeMessage n []]
+    go moreItems@(_:_) [] n = [pure $ makeFullTree False sizeMessage (n + length moreItems) []]
     go [] (m:_) n = [ m Positive Nothing
-                    , pure $ MatchTree False sizeMessage (Just $ show n) []
+                    , pure $ makeFullTree False sizeMessage n []
                     ]
 
 -- | Matcher that succeeds if the argument starts with the specified
@@ -585,6 +601,16 @@ contramapSet
 contramapSet f set = MatcherSetF run
   where run dir = matchSetF set dir . fmap (fmap f)
 
+-- | Makes a matcher that attaches a label to the outcome of another
+-- matcher.
+labeled
+  :: (Functor f)
+  => String
+  -> MatcherF f a
+  -> MatcherF f a
+labeled l = transformTree addLabel
+  where addLabel t = t { mtLabels = l : mtLabels t }
+
 -- | Builds a matcher for a structure from a matcher of its substructure.
 projection
   :: (Show s, Applicative f)
@@ -609,7 +635,7 @@ projectionWithSet name proj set dir value =
   let subnodesF = matchSetF (contramapSet proj set) dir value
       descr  = hsep ["projection", symbol name]
       msgF = sequenceA $ fmap (fmap show) value
-  in liftA2 (\xs msg -> MatchTree (all mtValue xs) descr msg xs)
+  in liftA2 (\xs msg -> MatchTree (all mtValue xs) descr [] msg xs)
      subnodesF msgF
 
 -- | Builds a matcher for one alternative of a sum type given matcher for a
@@ -638,8 +664,8 @@ prismWithSet
   -> MatcherF f s
 prismWithSet name p set dir v =
   case v of
-    Nothing -> MatchTree False descr Nothing <$> matchSetF set dir Nothing
-    Just fs -> (\subtrees s -> MatchTree (all mtValue subtrees) descr (Just $ show s) subtrees)
+    Nothing -> makeEmptyTree descr <$> matchSetF set dir Nothing
+    Just fs -> (\subtrees s -> makeFullTree (all mtValue subtrees) descr s subtrees)
       <$> matchSetF set dir (sequenceA $ fmap p fs)
       <*> fs
   where descr = hsep ["prism", symbol name]
@@ -673,15 +699,15 @@ throws exMatcher dir maybeAction = do
       
   case maybeAction of
     Nothing ->
-      return $ MatchTree False d Nothing [runIdentity $ exMatcher Positive Nothing]
+      return $ makeEmptyTree d [runIdentity $ exMatcher Positive Nothing]
     Just action -> do
       outcome <- tryExn action
       case outcome of
         NoExn -> return
-          $ MatchTree False d Nothing [runIdentity $ exMatcher Positive Nothing]
+          $ makeEmptyTree d [runIdentity $ exMatcher Positive Nothing]
         ExpectedExn exn -> return $ let node = match exn exMatcher
-                                    in MatchTree (applyDirection dir (mtValue node)) d (Just $ show exn) [node]
-        OtherExn exn -> return $ MatchTree (applyDirection dir False) d (Just $ show exn)
+                                    in makeFullTree (applyDirection dir (mtValue node)) d exn [node]
+        OtherExn exn -> return $ makeFullTree (applyDirection dir False) d exn
                                  [runIdentity $ exMatcher Positive Nothing]
 
 -- | Runs a matcher on the given effectful value and returns the

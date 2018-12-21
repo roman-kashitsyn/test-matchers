@@ -187,7 +187,7 @@ messageToDoc opts msg
       HCat ms -> PP.hcat $ map (messageToDoc opts) ms
 
 renderAsTreeWithRefs :: MatchTree -> RenderState (Doc Style)
-renderAsTreeWithRefs (MatchTree res descr val subnodes) = do
+renderAsTreeWithRefs (MatchTree res descr _ val subnodes) = do
   doc <- lineDoc
   subtreeDocs <- traverse renderAsTreeWithRefs subnodes
   opts <- ask

@@ -58,7 +58,10 @@ isForkWith
   => MatcherF f (Tree a)
   -> MatcherF f (Tree a)
   -> MatcherF f (Tree a)
-isForkWith leftM rightM = prismWithSet "Fork" p (matcher leftM &> matcher rightM)
+isForkWith leftM rightM = prismWithSet "Fork" p
+                          ( matcher (labeled "left" leftM) &>
+                            matcher (labeled "right" rightM)
+                          )
   where p (Fork l r) = Just (l &. r)
         p _ = Nothing
 
@@ -70,13 +73,17 @@ treeEq (Leaf x) = isLeafWith (eq x)
 treeEq (Fork l r) = isForkWith (treeEq l) (treeEq r)
 
 ok :: Message -> String -> MatchTree
-ok msg val = MatchTree True msg (Just val) []
+ok msg val = MatchTree True msg [] (Just val) []
 
 nok :: Message -> String -> MatchTree
-nok msg val = MatchTree False msg (Just val) []
+nok msg val = MatchTree False msg [] (Just val) []
 
 nok' :: Message -> MatchTree
-nok' msg = MatchTree False msg Nothing []
+nok' msg = MatchTree False msg [] Nothing []
+
+mtOk, mtNok :: Message -> Maybe String -> [MatchTree] -> MatchTree
+mtOk msg mval sub = MatchTree True msg [] mval sub
+mtNok msg mval sub = MatchTree False msg [] mval sub
 
 shouldBeEquiv :: HasCallStack => MatchTree -> MatchTree -> Expectation
 shouldBeEquiv lhs rhs = (simplifyTree lhs) `shouldBe` (simplifyTree rhs)
@@ -125,29 +132,29 @@ main = hspec $ do
 
     it "can match tuples" $ do
       match (3, 4) (tuple2 (eq 3) (gt 1)) `shouldBeEquiv`
-        MatchTree True "all of" (Just "(3,4)")
-        [ MatchTree True "projection \"fst\"" (Just "(3,4)")
+        mtOk "all of" (Just "(3,4)")
+        [ mtOk "projection \"fst\"" (Just "(3,4)")
           [ok "is a value equal to 3" "3"]
-        , MatchTree True "projection \"snd\"" (Just "(3,4)")
+        , mtOk "projection \"snd\"" (Just "(3,4)")
           [ok "is a value > 1" "4"]
         ]
 
       match (3, 4, 5) (tuple3 (eq 3) (gt 1) (gt 3)) `shouldBeEquiv`
-        MatchTree True "all of" (Just "(3,4,5)")
-        [ MatchTree True "projection \"#1\"" (Just "(3,4,5)")
+        mtOk "all of" (Just "(3,4,5)")
+        [ mtOk "projection \"#1\"" (Just "(3,4,5)")
           [ok "is a value equal to 3" "3"]
-        , MatchTree True "projection \"#2\"" (Just "(3,4,5)")
+        , mtOk "projection \"#2\"" (Just "(3,4,5)")
           [ok "is a value > 1" "4"]
-        , MatchTree True "projection \"#3\"" (Just "(3,4,5)")
+        , mtOk "projection \"#3\"" (Just "(3,4,5)")
           [ok "is a value > 3" "5"]
         ]
       match (3, 4, 5) (tuple3 (lt 4) (lt 4) (lt 4)) `shouldBeEquiv`
-        MatchTree False "all of" (Just "(3,4,5)")
-        [ MatchTree True "projection \"#1\"" (Just "(3,4,5)")
+        mtNok "all of" (Just "(3,4,5)")
+        [ mtOk "projection \"#1\"" (Just "(3,4,5)")
           [ok "is a value < 4" "3"]
-        , MatchTree False "projection \"#2\"" (Just "(3,4,5)")
+        , mtNok "projection \"#2\"" (Just "(3,4,5)")
           [nok "is a value < 4" "4"]
-        , MatchTree False "projection \"#3\"" (Just "(3,4,5)")
+        , mtNok "projection \"#3\"" (Just "(3,4,5)")
           [nok "is a value < 4" "5"]
         ]
 
@@ -162,21 +169,17 @@ main = hspec $ do
         ok "is not Nothing" "Just 5"
 
       match (Nothing :: Maybe Int) (isJustWith $ eq 5) `shouldBeEquiv`
-        MatchTree False "prism \"Just\"" (Just "Nothing")
+        mtNok "prism \"Just\"" (Just "Nothing")
         [nok' "is a value equal to 5"]
       match (Just 5) (isJustWith $ eq 5) `shouldBeEquiv`
-        MatchTree True "prism \"Just\"" (Just "Just 5")
+        mtOk "prism \"Just\"" (Just "Just 5")
         [ok "is a value equal to 5" "5"]
 
     it "can match Either a b" $ do
       match (Left 3 :: Either Int String) (isLeftWith (eq 3)) `shouldBeEquiv`
-        MatchTree True
-        "prism \"Left\""
-        (Just "Left 3") [ok "is a value equal to 3" "3"]
+        mtOk "prism \"Left\"" (Just "Left 3") [ok "is a value equal to 3" "3"]
       match (Right "ok" :: Either Int String) (isRightWith anything) `shouldBeEquiv`
-        MatchTree True
-        "prism \"Right\""
-        (Just "Right \"ok\"") [ok "anything" "\"ok\""]
+        mtOk "prism \"Right\"" (Just "Right \"ok\"") [ok "anything" "\"ok\""]
 
     it "can match list prefixes/suffixes/infixes" $ do
       match [1, 1, 2, 3] (startsWith [1, 1]) `shouldBeEquiv`
@@ -188,21 +191,21 @@ main = hspec $ do
 
     it "can match lists" $ do
       match ([] :: [Int])  (elementsAre []) `shouldBeEquiv`
-        MatchTree True "container such that" (Just "[]")
+        mtOk "container such that" (Just "[]")
         [ok "number of elements is 0" "0"]
 
       match [] (elementsAre [eq 5]) `shouldBeEquiv`
-        MatchTree False "container such that" (Just "[]")
+        mtNok "container such that" (Just "[]")
         [ nok' "is a value equal to 5"
         , nok "number of elements is 1" "0"
         ]
       match [5, 7] (elementsAre [eq 5]) `shouldBeEquiv`
-        MatchTree False "container such that" (Just "[5,7]")
+        mtNok "container such that" (Just "[5,7]")
         [ ok "is a value equal to 5" "5"
         , nok "number of elements is 1" "2"
         ]
       match [5, 7] (elementsAre [eq 5, gt 5]) `shouldBeEquiv`
-        MatchTree True "container such that" (Just "[5,7]")
+        mtOk "container such that" (Just "[5,7]")
         [ ok "is a value equal to 5" "5"
         , ok "is a value > 5" "7"
         , ok "number of elements is 2" "2"
@@ -210,49 +213,49 @@ main = hspec $ do
 
     it "can match each element of a list" $ do
       match [1,2] (each $ gt 0) `shouldBeEquiv`
-        MatchTree True "each element of the container" (Just "[1,2]")
+        mtOk "each element of the container" (Just "[1,2]")
         [ ok "is a value > 0" "1"
         , ok "is a value > 0" "2"
         ]
 
       match [-1,1] (each $ gt 0) `shouldBeEquiv`
-        MatchTree False "each element of the container" (Just "[-1,1]")
+        mtNok "each element of the container" (Just "[-1,1]")
         [ nok "is a value > 0" "-1"
         , ok "is a value > 0" "1"
         ]
 
       match [] (each $ gt 0) `shouldBeEquiv`
-        MatchTree True "each element of the container" (Just "[]")
+        mtOk "each element of the container" (Just "[]")
         [ nok' "is a value > 0" ]
 
       match [] (negationOf $ each $ gt 0) `shouldBeEquiv`
-        MatchTree False "container has at least one element that" (Just "[]")
+        mtNok "container has at least one element that" (Just "[]")
         [ nok' "is a value > 0" ]
 
       match [0,5] (negationOf $ each $ lt 5) `shouldBeEquiv`
-        MatchTree True "container has at least one element that" (Just "[0,5]")
+        mtOk "container has at least one element that" (Just "[0,5]")
         [ ok "is a value < 5" "0"
         , nok "is a value < 5" "5"
         ]
 
     it "can aggregate matchers" $ do
       match 1 (allOf [gt 0, lt 5]) `shouldBeEquiv`
-        MatchTree True "all of" (Just "1")
+        mtOk "all of" (Just "1")
         [ ok "is a value > 0" "1"
         , ok "is a value < 5" "1"
         ]
       match 1 (allOf [gt 1, lt 5]) `shouldBeEquiv`
-        MatchTree False "all of" (Just "1")
+        mtNok "all of" (Just "1")
         [ nok "is a value > 1" "1"
         , ok "is a value < 5" "1"
         ]
       match 1 (oneOf [lt 1, ne 0]) `shouldBeEquiv`
-        MatchTree True "one of" (Just "1")
+        mtOk "one of" (Just "1")
         [ nok "is a value < 1" "1"
         , ok "is a value not equal to 0" "1"
         ]
       match 1 (oneOf [lt (-1), gt 1]) `shouldBeEquiv`
-        MatchTree False "one of" (Just "1")
+        mtNok "one of" (Just "1")
         [ nok "is a value < -1" "1"
         , nok "is a value > 1" "1"
         ]
@@ -260,10 +263,10 @@ main = hspec $ do
                                        , projection "snd" snd (eq 2)
                                        ])
         `shouldBeEquiv`
-        MatchTree False "not all of" (Just "(1,2)")
-        [ MatchTree True "projection \"fst\"" (Just "(1,2)")
+        mtNok "not all of" (Just "(1,2)")
+        [ mtOk "projection \"fst\"" (Just "(1,2)")
           [ ok "is a value equal to 1" "1" ]
-        , MatchTree True "projection \"snd\"" (Just "(1,2)")
+        , mtOk "projection \"snd\"" (Just "(1,2)")
           [ ok "is a value equal to 2" "2" ]
         ]
   
@@ -278,10 +281,10 @@ main = hspec $ do
 
     it "can check the length of a container" $ do
       match (Just 1) (hasLength $ gt 0) `shouldBeEquiv`
-        MatchTree True "projection \"length\"" (Just "Just 1")
+        mtOk "projection \"length\"" (Just "Just 1")
         [ ok "is a value > 0" "1" ]
       match [1,2,3] (hasLength $ eq 4) `shouldBeEquiv`
-        MatchTree False "projection \"length\"" (Just "[1,2,3]")
+        mtNok "projection \"length\"" (Just "[1,2,3]")
         [ nok "is a value equal to 4" "3" ]
 
   describe "Test.HUnit integration" $ do
@@ -330,7 +333,7 @@ main = hspec $ do
     it "does not rethrow unmatched exception" $ do
       fmap simplifyTree (throws (eq DivideByZero) `runMatcher` ioError unsupportedOperation)
         `shouldReturn`
-        (MatchTree False
+        (mtNok
          "action throwing ArithException that"
          (Just $ show unsupportedOperation)
          [nok' (fromString $ "is a value equal to " ++ show DivideByZero)
@@ -338,7 +341,7 @@ main = hspec $ do
 
     it "reports error when no exception thrown" $ do
       fmap simplifyTree (throws (eq DivideByZero) `runMatcher` (pure 0)) `shouldReturn`
-        (MatchTree False
+        (mtNok
         "action throwing ArithException that"
          Nothing
          [nok' (fromString $ "is a value equal to " ++ show DivideByZero)])
@@ -367,9 +370,9 @@ main = hspec $ do
 
     it "can fuse prisms with all of" $ do
       match (Fork (Leaf 1) (Leaf 2)) (isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 2)) `shouldBeEquiv`
-        MatchTree True "prism \"Fork\"" (Just "Fork (Leaf 1) (Leaf 2)")
-        [ MatchTree True "prism \"Leaf\"" (Just "Leaf 1") [ok "is a value equal to 1" "1"]
-        , MatchTree True "prism \"Leaf\"" (Just "Leaf 2") [ok "is a value equal to 2" "2"]
+        mtOk "prism \"Fork\"" (Just "Fork (Leaf 1) (Leaf 2)")
+        [ MatchTree True "prism \"Leaf\"" ["left"] (Just "Leaf 1") [ok "is a value equal to 1" "1"]
+        , MatchTree True "prism \"Leaf\"" ["right"] (Just "Leaf 2") [ok "is a value equal to 2" "2"]
         ]
 
   describe "Pretty-printing options" $ do
