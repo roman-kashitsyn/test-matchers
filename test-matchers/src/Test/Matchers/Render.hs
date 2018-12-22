@@ -37,6 +37,7 @@ import qualified Test.Matchers.Message as MSG
 
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
+import Data.List (intersperse)
 import Data.Text.Lazy (unpack)
 import Data.Text.Prettyprint.Doc ((<>), (<+>), Doc)
 import Data.Text.Prettyprint.Doc.Render.Terminal (AnsiStyle)
@@ -187,7 +188,7 @@ messageToDoc opts msg
       HCat ms -> PP.hcat $ map (messageToDoc opts) ms
 
 renderAsTreeWithRefs :: MatchTree -> RenderState (Doc Style)
-renderAsTreeWithRefs (MatchTree res descr _ val subnodes) = do
+renderAsTreeWithRefs (MatchTree res descr labels val subnodes) = do
   doc <- lineDoc
   subtreeDocs <- traverse renderAsTreeWithRefs subnodes
   opts <- ask
@@ -199,18 +200,29 @@ renderAsTreeWithRefs (MatchTree res descr _ val subnodes) = do
           opts <- ask
           let limit = ppMaxValueWidth opts
               arrowDoc = messageToDoc opts arrow
-              aDescr = messageToDoc opts descr
+              descrDoc = messageToDoc opts (displayLabels labels descr)
           case val of
-            Nothing -> return aDescr
+            Nothing -> return descrDoc
             Just valMsg | not (lengthWithinLimit limit valMsg) -> do
                             refId <- allocateId valMsg
-                            return $ PP.hsep [aDescr, arrowDoc, displayRef refId]
-            Just valMsg -> return $ PP.hsep [aDescr, arrowDoc, PP.pretty valMsg]
+                            return $ PP.hsep [descrDoc, arrowDoc, displayRef refId]
+            Just valMsg -> return $ PP.hsep [descrDoc, arrowDoc, PP.pretty valMsg]
 
-check, cross, arrow :: Message
+displayLabels :: [String] -> Message -> Message
+displayLabels [] m = m
+displayLabels xs m = mconcat
+                     [ MSG.str "["
+                     , MSG.hcat (intersperse compose $ map MSG.str xs)
+                     , MSG.str "]"
+                     , MSG.space
+                     , m
+                     ]
+
+compose, check, cross, arrow :: Message
 check = MSG.fancyChar '✔' "[v]"
 cross = MSG.fancyChar '✘' "[x]"
 arrow = MSG.fancyChar '←' "<-"
+compose = MSG.str "."
 
 displayRef :: Int -> Doc Style
 displayRef ref = PP.annotate RefStyle $ PP.hcat ["<", PP.pretty ref, ">"]

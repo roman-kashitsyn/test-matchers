@@ -32,6 +32,7 @@ module Test.Matchers.Message
   , fancyChar
   , hcat
   , hsep
+  , space
   , str
   , symbol
   ) where
@@ -71,6 +72,9 @@ instance IsString Message where
 
 notEmpty :: [Message] -> [Message]
 notEmpty = filter (/= Empty)
+
+space :: Message
+space = Space
 
 hcat' :: [Message] -> Message
 hcat' [] = Empty

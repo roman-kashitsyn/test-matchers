@@ -16,9 +16,7 @@ limitations under the License.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-{-# ANN module "HLint: ignore Redundant do" #-}
 import Test.Hspec
-
 import Data.String (IsString(..))
 import Data.List (intercalate)
 import GHC.IO.Exception
@@ -320,12 +318,30 @@ main = hspec $ do
         , "  [x] is empty <- \"test\""
         , "  [v] is not empty <- \"test\""
         ]
+
+    it "can display simple labels" $ do
+      (Fork (Leaf 1) (Leaf 2) `shouldMatch` isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 1))
+      `failureMessageIs`
+        intercalate "\n"
+        [ "✘ prism \"Fork\" ← <1>"
+        , "  ✔ [left] prism \"Leaf\" ← Leaf 1"
+        , "    ✔ is a value equal to 1 ← 1"
+        , "  ✘ [right] prism \"Leaf\" ← Leaf 2"
+        , "    ✘ is a value equal to 1 ← 2"
+        , "where:"
+        , "  <1> Fork (Leaf 1) (Leaf 2)"
+        ]
+
+    it "can display composed labels" $ do
+      (2 `shouldMatch` (labeled "foo" $ labeled "bar" $ eq 0))
+      `failureMessageIs`
+        "✘ [foo.bar] is a value equal to 0 ← 2"
   
   describe "Exception matching" $ do
 
     it "can match exceptions as normal values" $
       ioError unsupportedOperation `shouldMatchIO`
-        throws $ projection "ioe_type" ioe_type (eq UnsupportedOperation)
+        throws (projection "ioe_type" ioe_type $ eq UnsupportedOperation)
 
     it "can match any exception" $
       ioError unsupportedOperation `shouldMatchIO`
