@@ -50,8 +50,8 @@ module Test.Matchers.Simple
 
   -- * Matchers combinators
   , MatcherSetF
-  , matcher
-  , matchers
+  , singleton
+  , setOf
   , anything
   , projection
   , projectionWithSet
@@ -368,18 +368,18 @@ anything = predicate (const True) ("anything", "nothing")
 
 -- | Constructs a matcher set from a 'Foldable' container containing
 -- matchers.
-matchers
+setOf
   :: (Applicative f, Foldable t)
   => t (MatcherF f a)
   -> MatcherSetF f a
-matchers = foldMap matcher
+setOf = foldMap singleton
 
 -- | Constructs a matcher set containing just a single matcher.
-matcher
+singleton
   :: (Functor f)
   => MatcherF f a
   -> MatcherSetF f a
-matcher = MatcherSetF . fmap (fmap (fmap pure))
+singleton = MatcherSetF . fmap (fmap (fmap pure))
 
 -- | Constructs a matcher that succeed if all the matchers in the
 -- provided set succeed.
@@ -395,7 +395,7 @@ allOf
   :: (Show a, Applicative f, Foldable t)
   => t (MatcherF f a) -- ^ A foldable container with matchers.
   -> MatcherF f a
-allOf = allOfSet . matchers
+allOf = allOfSet . setOf
 
 -- | Constructs a matcher that succeed if at least one of the matchers
 -- in the provided set succeed.
@@ -411,7 +411,7 @@ oneOf
   :: (Show a, Applicative f, Foldable t)
   => t (MatcherF f a) -- ^ A foldable container with matchers.
   -> MatcherF f a
-oneOf = oneOfSet . matchers
+oneOf = oneOfSet . setOf
 
 -- | Inverts the given matcher.
 --
@@ -543,7 +543,7 @@ tuple2
   -> MatcherF f b -- ^ Matcher for the 2nd element of the pair.
   -> MatcherF f (a, b)
 tuple2 mx my =
-  allOfSet (matcher (labeled "fst" mx) &> matcher (labeled "snd" my))
+  allOfSet (singleton (labeled "fst" mx) &> singleton (labeled "snd" my))
 
 -- | Builds a matcher for a 3-tuple from the matchers for components.
 tuple3
@@ -553,9 +553,9 @@ tuple3
   -> MatcherF f c -- ^ Matcher for the 3rd element of the 3-tuple.
   -> MatcherF f (a, b, c)
 tuple3 mx my mz =
-  allOfSet $ contramapSet retuple (matcher (labeled "_1" mx)
-                                   &> matcher (labeled "_2" my)
-                                   &> matcher (labeled "_3" mz))
+  allOfSet $ contramapSet retuple (singleton (labeled "_1" mx)
+                                   &> singleton (labeled "_2" my)
+                                   &> singleton (labeled "_3" mz))
   where retuple (x, y, z) = (x, (y, z))
 
 -- | A matcher for 'Maybe' that matches only 'Nothing'.
@@ -620,7 +620,7 @@ projection
   -> (s -> a) -- ^ The projection from a structure 's' to it's substructure 'a'.
   -> MatcherF f a -- ^ Matcher of the substructure 'a'.
   -> MatcherF f s
-projection name proj m = projectionWithSet name proj (matcher m)
+projection name proj m = projectionWithSet name proj (singleton m)
 
 -- | Builds a matcher for a structure from a set of matchers for its substructure.
 -- The whole matcher succeeds if all the matchers from the set succeed.
@@ -648,7 +648,7 @@ prism
   -> (s -> Maybe a) -- ^ The selector for the alternative "a".
   -> MatcherF f a -- ^ The matcher for the value of the alternative.
   -> MatcherF f s
-prism name p m = prismWithSet name p (matcher m)
+prism name p m = prismWithSet name p (singleton m)
 
 -- | A version of 'prism' that takes a set of matchers for the value
 -- instead of a single one. The results of the matchers in the set are

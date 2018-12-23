@@ -58,9 +58,8 @@ isForkWith
   -> MatcherF f (Tree a)
   -> MatcherF f (Tree a)
 isForkWith leftM rightM = prismWithSet "Fork" p
-                          ( matcher (labeled "left" leftM) &>
-                            matcher (labeled "right" rightM)
-                          )
+                          (singleton (labeled "left" leftM)
+                           &> singleton (labeled "right" rightM))
   where p (Fork l r) = Just (l &. r)
         p _ = Nothing
 
