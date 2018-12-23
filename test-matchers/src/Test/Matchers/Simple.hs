@@ -542,7 +542,8 @@ tuple2
   => MatcherF f a -- ^ Matcher for the 1st element of the pair.
   -> MatcherF f b -- ^ Matcher for the 2nd element of the pair.
   -> MatcherF f (a, b)
-tuple2 mx my = projection "fst" fst mx `andAlso` projection "snd" snd my
+tuple2 mx my =
+  allOfSet (matcher (labeled "fst" mx) &> matcher (labeled "snd" my))
 
 -- | Builds a matcher for a 3-tuple from the matchers for components.
 tuple3
@@ -551,10 +552,11 @@ tuple3
   -> MatcherF f b -- ^ Matcher for the 2nd element of the 3-tuple.
   -> MatcherF f c -- ^ Matcher for the 3rd element of the 3-tuple.
   -> MatcherF f (a, b, c)
-tuple3 mx my mz = allOf [ projection "#1" (\(x,_,_) -> x) mx
-                        , projection "#2" (\(_,y,_) -> y) my
-                        , projection "#3" (\(_,_,z) -> z) mz
-                        ]
+tuple3 mx my mz =
+  allOfSet $ contramapSet retuple (matcher (labeled "_1" mx)
+                                   &> matcher (labeled "_2" my)
+                                   &> matcher (labeled "_3" mz))
+  where retuple (x, y, z) = (x, (y, z))
 
 -- | A matcher for 'Maybe' that matches only 'Nothing'.
 isNothing
@@ -750,7 +752,7 @@ matches x m = mtValue $ match x m
 (&.) :: a -> b -> (a, b)
 x &. y = (x, y)
 
-infixl 7 &.
+infixr 7 &.
 
 -- | Parallel matcher set composition operator, see 'MatcherSetF' for details.
 (&>) :: (Show a, Show b, Applicative f)
@@ -762,4 +764,4 @@ ma &> mb = MatcherSetF $ \dir maybeP ->
   (matchSetF ma dir $ fmap (fmap fst) maybeP)
   (matchSetF mb dir $ fmap (fmap snd) maybeP)
 
-infixl 7 &>
+infixr 7 &>

@@ -84,6 +84,10 @@ mtOk, mtNok :: Message -> Maybe String -> [MatchTree] -> MatchTree
 mtOk msg = MatchTree True msg []
 mtNok msg = MatchTree False msg []
 
+mtOkL, mtNokL :: Message -> String -> Maybe String -> [MatchTree] -> MatchTree
+mtOkL msg label = MatchTree True msg [label]
+mtNokL msg label = MatchTree False msg [label]
+
 shouldBeEquiv :: HasCallStack => MatchTree -> MatchTree -> Expectation
 shouldBeEquiv lhs rhs = simplifyTree lhs `shouldBe` simplifyTree rhs
 
@@ -132,29 +136,21 @@ main = hspec $ do
     it "can match tuples" $ do
       match (3, 4) (tuple2 (eq 3) (gt 1)) `shouldBeEquiv`
         mtOk "all of" (Just "(3,4)")
-        [ mtOk "projection \"fst\"" (Just "(3,4)")
-          [ok "is a value equal to 3" "3"]
-        , mtOk "projection \"snd\"" (Just "(3,4)")
-          [ok "is a value > 1" "4"]
+        [ mtOkL "is a value equal to 3" "fst" (Just "3") []
+        , mtOkL "is a value > 1" "snd" (Just "4") []
         ]
 
       match (3, 4, 5) (tuple3 (eq 3) (gt 1) (gt 3)) `shouldBeEquiv`
         mtOk "all of" (Just "(3,4,5)")
-        [ mtOk "projection \"#1\"" (Just "(3,4,5)")
-          [ok "is a value equal to 3" "3"]
-        , mtOk "projection \"#2\"" (Just "(3,4,5)")
-          [ok "is a value > 1" "4"]
-        , mtOk "projection \"#3\"" (Just "(3,4,5)")
-          [ok "is a value > 3" "5"]
+        [ mtOkL "is a value equal to 3" "_1" (Just "3") []
+        , mtOkL "is a value > 1" "_2" (Just "4") []
+        , mtOkL "is a value > 3" "_3" (Just "5") []
         ]
       match (3, 4, 5) (tuple3 (lt 4) (lt 4) (lt 4)) `shouldBeEquiv`
         mtNok "all of" (Just "(3,4,5)")
-        [ mtOk "projection \"#1\"" (Just "(3,4,5)")
-          [ok "is a value < 4" "3"]
-        , mtNok "projection \"#2\"" (Just "(3,4,5)")
-          [nok "is a value < 4" "4"]
-        , mtNok "projection \"#3\"" (Just "(3,4,5)")
-          [nok "is a value < 4" "5"]
+        [ mtOkL "is a value < 4" "_1" (Just "3") []
+        , mtNokL "is a value < 4" "_2" (Just "4") []
+        , mtNokL "is a value < 4" "_3" (Just "5") []
         ]
 
     it "can match Maybe a" $ do
@@ -320,7 +316,7 @@ main = hspec $ do
         ]
 
     it "can display simple labels" $ do
-      (Fork (Leaf 1) (Leaf 2) `shouldMatch` isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 1))
+      (Fork (Leaf 1) (Leaf 2) `I.shouldMatch` isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 1))
       `failureMessageIs`
         intercalate "\n"
         [ "✘ prism \"Fork\" ← <1>"
@@ -333,7 +329,7 @@ main = hspec $ do
         ]
 
     it "can display composed labels" $ do
-      (2 `shouldMatch` (labeled "foo" $ labeled "bar" $ eq 0))
+      (2 `I.shouldMatch` (labeled "foo" $ labeled "bar" $ eq 0))
       `failureMessageIs`
         "✘ [foo.bar] is a value equal to 0 ← 2"
   
@@ -389,9 +385,9 @@ main = hspec $ do
     it "can fuse prisms with all of" $
       match (Fork (Leaf 1) (Leaf 2)) (isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 2)) `shouldBeEquiv`
         mtOk "prism \"Fork\"" (Just "Fork (Leaf 1) (Leaf 2)")
-        [ MatchTree True "prism \"Leaf\"" ["left"] (Just "Leaf 1")
+        [ mtOkL "prism \"Leaf\"" "left" (Just "Leaf 1")
           [ok "is a value equal to 1" "1"]
-        , MatchTree True "prism \"Leaf\"" ["right"] (Just "Leaf 2")
+        , mtOkL "prism \"Leaf\"" "right" (Just "Leaf 2")
           [ok "is a value equal to 2" "2"]
         ]
 
