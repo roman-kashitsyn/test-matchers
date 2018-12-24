@@ -200,7 +200,7 @@ renderAsTreeWithRefs (MatchTree res descr labels val subnodes) = do
           opts <- ask
           let limit = ppMaxValueWidth opts
               arrowDoc = messageToDoc opts arrow
-              descrDoc = messageToDoc opts (displayLabels labels descr)
+              descrDoc = PP.annotate msgStyle $ messageToDoc opts (displayLabels labels descr)
           case val of
             Nothing -> return descrDoc
             Just valMsg | not (lengthWithinLimit limit valMsg) -> do
