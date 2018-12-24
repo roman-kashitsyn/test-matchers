@@ -37,14 +37,15 @@ module Test.Matchers.Tasty
 import Data.Char (toLower)
 import Data.Proxy (Proxy(Proxy))
 import Data.Typeable (Typeable)
+import Options.Applicative (metavar)
 import Test.Matchers
   ( MatchTree
   , Matcher
   , MatcherF
   , match
+  , mtValue
   , negationOf
   , runMatcher
-  , mtValue
   )
 import Test.Matchers.Render
   ( Mode(PlainText, RichText)
@@ -52,11 +53,11 @@ import Test.Matchers.Render
   , defaultPPOptions
   , prettyPrint
   )
-import Test.Tasty.Ingredients.ConsoleReporter (UseColor(Never, Always, Auto))
+import Test.Tasty.Ingredients.ConsoleReporter (UseColor(Always, Auto, Never))
 import Test.Tasty.Options
   ( IsOption(..)
+  , OptionDescription(Option)
   , OptionSet
-  , OptionDescription (Option)
   , lookupOption
   , mkOptionCLParser
   )
@@ -64,10 +65,9 @@ import Test.Tasty.Providers
   ( IsTest(run, testOptions)
   , TestTree
   , singleTest
-  , testPassed
   , testFailed
+  , testPassed
   )
-import Options.Applicative (metavar)
 
 data UseUnicode
   = NeverUseUnicode
@@ -103,16 +103,16 @@ instance IsTest MatchersTest where
 applyColor :: UseColor -> PPOptions -> PPOptions
 applyColor useColor opts =
   case useColor of
-    Never -> opts { ppMode = PlainText }
+    Never  -> opts { ppMode = PlainText }
     Always -> opts { ppMode = RichText }
-    Auto -> opts
+    Auto   -> opts
 
 applyUnicode :: UseUnicode -> PPOptions -> PPOptions
 applyUnicode useUnicode opts =
   case useUnicode of
-    NeverUseUnicode -> opts { ppUseUnicode = False }
+    NeverUseUnicode  -> opts { ppUseUnicode = False }
     AlwaysUseUnicode -> opts { ppUseUnicode = True }
-    AutoUseUnicode -> opts
+    AutoUseUnicode   -> opts
 
 applyOptions :: OptionSet -> PPOptions -> PPOptions
 applyOptions optSet =

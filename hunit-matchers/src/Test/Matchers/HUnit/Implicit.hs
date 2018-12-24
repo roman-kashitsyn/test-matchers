@@ -47,15 +47,6 @@ import Data.Char (toLower)
 import Data.List (isInfixOf)
 import System.Environment (getEnvironment)
 import Test.HUnit (Assertion, assertFailure)
-import Test.Matchers.Simple
-  ( Matcher
-  , MatcherF
-  , MatchTree
-  , match
-  , mtValue
-  , negationOf
-  , runMatcher
-  )
 import Test.Matchers.Render
   ( Mode(PlainText)
   , PPOptions
@@ -63,6 +54,15 @@ import Test.Matchers.Render
   , ppMode
   , ppUseUnicode
   , prettyPrint
+  )
+import Test.Matchers.Simple
+  ( MatchTree
+  , Matcher
+  , MatcherF
+  , match
+  , mtValue
+  , negationOf
+  , runMatcher
   )
 
 -- | Adjusts the options based on the TERM environment variable.

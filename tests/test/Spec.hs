@@ -13,19 +13,20 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-import Test.Hspec
-import Data.String (IsString(..))
-import Data.List (intercalate)
-import GHC.IO.Exception
 import Control.Exception
+import Data.List (intercalate)
+import Data.String (IsString(..))
+import GHC.IO.Exception
+import Test.Hspec
+import Test.HUnit.Lang (FailureReason(Reason), HUnitFailure(..))
 import Test.Matchers
-import Test.Matchers.Message
 import Test.Matchers.HUnit
 import qualified Test.Matchers.HUnit.Implicit as I
-import Test.HUnit.Lang (HUnitFailure(..), FailureReason(Reason))
+import Test.Matchers.Message
 
 default (Integer, Double)
 
@@ -263,7 +264,7 @@ main = hspec $ do
         , mtOk "projection \"snd\"" (Just "(1,2)")
           [ ok "is a value equal to 2" "2" ]
         ]
-  
+
   describe "Container matching" $ do
     it "can check if container is empty" $ do
       match (Nothing :: Maybe Int) isEmpty `shouldBeEquiv` ok "is empty" "Nothing"
@@ -331,7 +332,7 @@ main = hspec $ do
       (2 `I.shouldMatch` (labeled "foo" $ labeled "bar" $ eq 0))
       `failureMessageIs`
         "✘ [foo.bar] is a value equal to 0 ← 2"
-  
+
   describe "Exception matching" $ do
 
     it "can match exceptions as normal values" $

@@ -37,8 +37,8 @@ module Test.Matchers.Message
   , symbol
   ) where
 
-import Data.String (IsString(..))
 import Data.List (intersperse)
+import Data.String (IsString(..))
 
 data Message
   = -- | Nothing at all
@@ -88,7 +88,7 @@ str = Str
 display :: (Show a) => a -> Message
 display = Value . show
 
--- | Makes a unicode symbol that 
+-- | Makes a unicode symbol that
 fancyChar :: Char -> String -> Message
 fancyChar = FancyChar
 

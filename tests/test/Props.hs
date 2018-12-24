@@ -13,15 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -}
-import Data.Functor.Identity (Identity (..), runIdentity)
+import Data.Functor.Identity (Identity(..), runIdentity)
 import Test.Matchers
+import Test.QuickCheck (counterexample, elements, forAll)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
-import Test.QuickCheck
-  ( counterexample
-  , elements
-  , forAll
-  )
 
 propTests :: TestTree
 propTests

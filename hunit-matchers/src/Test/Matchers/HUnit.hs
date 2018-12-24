@@ -36,8 +36,8 @@ module Test.Matchers.HUnit
 
 import qualified Test.Matchers.HUnit.Implicit as I
 
-import Test.Matchers.Simple (Matcher, MatcherF)
 import Test.HUnit (Assertion)
+import Test.Matchers.Simple (Matcher, MatcherF)
 
 -- | Checks that a pure value is matched by the given matcher.
 -- The function is designed to be used in test frameworks, mainly HUnit and
@@ -65,7 +65,7 @@ shouldNotMatch = let ?matchersOptionsAction = I.getOptionsFromEnv
 -- pure value.
 --
 -- > readNonExistingFile `shouldMatchIO` throws (anything :: Matcher IOException)
--- 
+--
 shouldMatchIO
   :: IO a -- ^ The action that should pass the test.
   -> MatcherF IO a -- ^ The matcher to run.

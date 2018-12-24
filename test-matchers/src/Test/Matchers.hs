@@ -19,5 +19,5 @@ module Test.Matchers
   ) where
 
 import Test.Matchers.Message as M (Message)
-import Test.Matchers.Simple as M
 import Test.Matchers.Render as M
+import Test.Matchers.Simple as M

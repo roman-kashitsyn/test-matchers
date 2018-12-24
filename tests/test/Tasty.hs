@@ -13,14 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -}
+import Test.Matchers (MatcherF, andAlso, eq, projection)
+import Test.Matchers.Tasty (shouldMatch, shouldNotMatch, testCase)
 import Test.Tasty (TestTree, defaultMain, testGroup)
-import Test.Matchers.Tasty (testCase, shouldMatch, shouldNotMatch)
-import Test.Matchers
-  ( MatcherF
-  , andAlso
-  , eq
-  , projection
-  )
 
 data User
   = User

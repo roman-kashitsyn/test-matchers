@@ -32,16 +32,16 @@ module Test.Matchers.Render
   ) where
 
 import Test.Matchers.Message (Message(..))
-import Test.Matchers.Simple
 import qualified Test.Matchers.Message as MSG
+import Test.Matchers.Simple
 
-import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import Data.List (intersperse)
+import qualified Data.Map as M
 import Data.Text.Lazy (unpack)
-import Data.Text.Prettyprint.Doc ((<>), (<+>), Doc)
-import Data.Text.Prettyprint.Doc.Render.Terminal (AnsiStyle)
+import Data.Text.Prettyprint.Doc (Doc, (<+>), (<>))
 import qualified Data.Text.Prettyprint.Doc as PP
+import Data.Text.Prettyprint.Doc.Render.Terminal (AnsiStyle)
 import qualified Data.Text.Prettyprint.Doc.Render.Terminal as PPT
 
 -- | How to render the messages: use just plain text or fancy

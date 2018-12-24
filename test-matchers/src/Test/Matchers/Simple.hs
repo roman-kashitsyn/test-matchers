@@ -14,10 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_HADDOCK hide #-}
-{- |
+{-
+|
 Module:       Test.Matchers.Simple
 Description:  Simple matcher combinators for better unit testing.
 Copyright:    2018 Google LLC
@@ -98,26 +99,14 @@ module Test.Matchers.Simple
   , (&>)
   ) where
 
-import Test.Matchers.Message
-  ( Message
-  , display
-  , fancyChar
-  , hsep
-  , str
-  , symbol
-  )
-import Control.Applicative   (liftA2)
-import Control.Exception
-  ( Exception (..)
-  , Handler (..)
-  , SomeException
-  , catches
-  )
-import Data.Foldable         (Foldable, foldMap, null, toList)
-import Data.Functor.Identity (Identity (..), runIdentity)
-import Data.List             (isInfixOf, isPrefixOf, isSuffixOf)
-import Data.Traversable      (Traversable)
-import Data.Typeable         (typeOf)
+import Control.Applicative (liftA2)
+import Control.Exception (Exception(..), Handler(..), SomeException, catches)
+import Data.Foldable (Foldable, foldMap, null, toList)
+import Data.Functor.Identity (Identity(..), runIdentity)
+import Data.List (isInfixOf, isPrefixOf, isSuffixOf)
+import Data.Traversable (Traversable)
+import Data.Typeable (typeOf)
+import Test.Matchers.Message (Message, display, fancyChar, hsep, str, symbol)
 
 -- | The direction matcher works in.
 data Direction
@@ -182,11 +171,11 @@ type Matcher a    = MatcherF Identity a
 -- | The result of a matcher invocation.
 data MatchTree
   = MatchTree
-    { mtValue          :: !Bool -- ^ Whether the match was successful.
-    , mtDescription    :: Message -- ^ Message describing this matcher.
-    , mtLabels         :: [String] -- ^ List of labels attached to the matcher.
-    , mtMatchedValue   :: Maybe String -- ^ Textual representation of the value matched.
-    , mtSubnodes       :: [MatchTree] -- ^ Submatchers used to produce this result.
+    { mtValue        :: !Bool -- ^ Whether the match was successful.
+    , mtDescription  :: Message -- ^ Message describing this matcher.
+    , mtLabels       :: [String] -- ^ List of labels attached to the matcher.
+    , mtMatchedValue :: Maybe String -- ^ Textual representation of the value matched.
+    , mtSubnodes     :: [MatchTree] -- ^ Submatchers used to produce this result.
     } deriving (Show, Eq)
 
 instance (Applicative f) => Monoid (MatcherSetF f a) where
@@ -698,7 +687,7 @@ throws exMatcher dir maybeAction = do
       descr  = hsep ["action", "throwing", excName, "that"]
       descr_  = hsep ["action", "not", "throwing", excName, "that"]
       d = pickDescription dir (descr, descr_)
-      
+
   case maybeAction of
     Nothing ->
       return $ makeEmptyTree d [runIdentity $ exMatcher Positive Nothing]
