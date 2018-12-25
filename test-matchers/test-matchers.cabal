@@ -20,6 +20,8 @@ library
                      , Test.Matchers.Message
                      , Test.Matchers.Render
 
+  other-modules:       RStateMonad
+
   build-depends:       base >=4.8 && <5
                      , prettyprinter >=1.1 && <2
                      , prettyprinter-ansi-terminal >=1.1 && <2

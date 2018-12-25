@@ -31,6 +31,7 @@ module Test.Matchers.Render
   , prettyPrint
   ) where
 
+import RStateMonad (RState, ask, get, put, runRState)
 import Test.Matchers.Message (Message(..))
 import qualified Test.Matchers.Message as MSG
 import Test.Matchers.Simple
@@ -82,40 +83,6 @@ defaultPPOptions = PPOptions
                    , ppMaxValueWidth = 20
                    , ppPageWidth = 80
                    }
-
--- Minimal implementation of the (lazy) State + Reader monad to avoid
--- the direct dependency on transformers.
-
-newtype RState r s a = RState { runRState :: r -> s -> (a, s) }
-
-instance Functor (RState r s) where
-  fmap f (RState run) = RState $ \r s -> let (a, s') = run r s in (f a, s')
-
-instance Applicative (RState r s) where
-  pure x = RState $ \_ s -> (x, s)
-  (RState runF) <*> (RState runX) = RState $ \r s ->
-                                               let (f, s') = runF r s
-                                                   (x, s'') = runX r s'
-                                               in (f x, s'')
-
-instance Monad (RState r s) where
-  return = pure
-  (RState run) >>= f = RState $ \r s -> let (x, s') = run r s
-                                        in runRState (f x) r s'
-
-get :: RState r s s
-get = RState $ \_ s -> (s, s)
-
-put :: s -> RState r s ()
-put s = RState $ \_ _ -> ((), s)
-
-ask :: RState r s r
-ask = asks id
-
-asks :: (r -> r') -> RState r s r'
-asks view = RState $ \r s -> (view r, s)
-
--- end of the State implementation
 
 type RenderState = RState PPOptions (M.Map String Int)
 
