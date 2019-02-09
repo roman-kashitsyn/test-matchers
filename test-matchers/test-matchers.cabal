@@ -19,8 +19,11 @@ library
                      , Test.Matchers.Simple
                      , Test.Matchers.Message
                      , Test.Matchers.Render
+                     , Test.Matchers.LexShow
+                     , Test.Matchers.PrettyShow
 
   other-modules:       RStateMonad
+                     , Machines
 
   build-depends:       base >=4.8 && <5
                      , prettyprinter >=1.1 && <2

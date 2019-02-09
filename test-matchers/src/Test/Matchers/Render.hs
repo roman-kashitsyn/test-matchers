@@ -33,6 +33,8 @@ module Test.Matchers.Render
 
 import RStateMonad (RState, ask, get, put, runRState)
 import Test.Matchers.Message (Message(..))
+import Test.Matchers.PrettyShow (prettyShow)
+import Test.Matchers.LexShow (TokType(..))
 import qualified Test.Matchers.Message as MSG
 import Test.Matchers.Simple
 
@@ -55,12 +57,12 @@ data Mode = PlainText | RichText
 data Style
   = PlainStyle -- ^ Default style of the output.
   | ValueStyle -- ^ The style to use for printing values having a Show instance.
+  | TokenStyle TokType -- ^ The style to use to print a token.
   | SymbolStyle -- ^ The style to use for printing symbols.
   | RefStyle -- ^ The style to use for references.
   | SuccessStyle -- ^ The style to use for successfully completed matchers.
   | FailureStyle -- ^ The style to use for failed matchers.
-  deriving (Eq, Show, Enum, Bounded)
-
+  deriving (Eq, Show)
 
 -- | Options controlling the pretty-printing.
 data PPOptions
@@ -71,6 +73,7 @@ data PPOptions
                             -- Unicode symbols in the output.
     , ppMaxValueWidth :: !Int -- ^ Max length of the value before
                               -- it's turned into a reference.
+    , ppMaxShowLength :: !Int -- ^ The maximal length of the showed value.
     , ppPageWidth :: !Int -- ^ Maximum page width in characters for
                           -- the pretty printer.
     } deriving (Eq, Show)
@@ -81,6 +84,7 @@ defaultPPOptions = PPOptions
                    { ppMode = RichText
                    , ppUseUnicode = True
                    , ppMaxValueWidth = 20
+                   , ppMaxShowLength = 2000
                    , ppPageWidth = 80
                    }
 
@@ -101,6 +105,12 @@ toAnsiStyle style = case style of
                       RefStyle -> PPT.bold
                       SuccessStyle -> PPT.colorDull PPT.Green
                       FailureStyle -> PPT.bold <> PPT.colorDull PPT.Red
+                      TokenStyle tok -> tokToAnsiStyle tok
+  where tokToAnsiStyle tok = case tok of
+                               TokNumber -> PPT.colorDull PPT.Red
+                               TokString -> PPT.colorDull PPT.Green
+                               TokIdent -> PPT.italicized
+                               _ -> mempty
 
 -- | Renders the match tree as a textual tree: nested matchers have
 -- higher indentation and the color indicates success or failure of
@@ -126,7 +136,7 @@ renderAsTree opts t =
     (doc, refs) = runRState (renderAsTreeWithRefs t) opts M.empty
     swap (x, y) = (y, x)
     renderRefs = PP.vsep . map renderRef . IM.toList . IM.fromList . map swap . M.toList
-    renderRef (refId, val) = displayRef refId <+> PP.pretty val
+    renderRef (refId, val) = displayRef refId <+> displayValue opts val
 
 allocateId :: String -> RenderState Int
 allocateId msg = do
@@ -143,13 +153,16 @@ lengthWithinLimit n s = case splitAt n s of
                           (_, []) -> True
                           _ -> False
 
+displayValue :: PPOptions -> String -> Doc Style
+displayValue opts = PP.reAnnotate TokenStyle . prettyShow (ppMaxShowLength opts)
+
 messageToDoc :: PPOptions -> Message -> Doc Style
 messageToDoc opts msg
   = case msg of
       Empty -> mempty
       Space -> PP.space
       Str s -> PP.pretty s
-      Value v -> PP.annotate ValueStyle $ PP.pretty v
+      Value v -> displayValue opts v
       Symbol s -> PP.annotate SymbolStyle $ PP.pretty s
       FancyChar c s -> if ppUseUnicode opts then PP.pretty c else PP.pretty s
       HCat ms -> PP.hcat $ map (messageToDoc opts) ms

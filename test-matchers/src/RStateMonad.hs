@@ -29,6 +29,7 @@ module RStateMonad
   , runRState
   , get
   , put
+  , modify
   , ask
   , asks
   ) where
@@ -52,6 +53,9 @@ instance Monad (RState r s) where
 
 get :: RState r s s
 get = RState $ \_ s -> (s, s)
+
+modify :: (s -> s) -> RState r s s
+modify f = RState $ \_ s -> (s, f s)
 
 put :: s -> RState r s ()
 put s = RState $ \_ _ -> ((), s)
