@@ -25,11 +25,13 @@ Stability:    experimental
 This module contains combinators for definining lexers that never
 backtrack.
 -}
-{-# LANGUAGE BangPatterns #-}
 module Machines where
 
 import Control.Applicative (Alternative(empty, (<|>)))
+import Control.Arrow (first, (&&&))
+import Control.Category ((>>>))
 import Data.Char (isSpace, toUpper)
+import Data.List (groupBy, partition, sortBy)
 
 import Data.Function (on)
 import qualified Data.Text as T
@@ -71,7 +73,7 @@ instance Applicative State where
 instance Monad State where
   return = pure
   (Done x) >>= f = f x
-  (Cont c) >>= f = Cont (Machine $ fmap (>>= f) $ step c)
+  (Cont c) >>= f = Cont (Machine $ (>>= f) <$> step c)
   Failed   >>= _ = Failed
   fail = const Failed
 
@@ -128,12 +130,13 @@ singleton n = Range n (n + 1)
 
 instance Monoid Range where
   mempty = Range 0 0
-  l@(Range b1 e1) `mappend` r@(Range b2 e2) =
-    if isEmptyR l
-    then r
-    else if isEmptyR r
-         then l
-         else Range (min b1 b2) (max e1 e2)
+  l@(Range b1 e1) `mappend` r@(Range b2 e2)
+    | isEmptyR l = r
+    | isEmptyR r = l
+    | otherwise = Range (min b1 b2) (max e1 e2)
+
+(|+) :: Range -> Int -> Range
+r |+ n = r `mappend` singleton n
 
 ----------------------------------------------------------------------
 -- Generic machine combinators
@@ -156,7 +159,7 @@ many :: Machine a -> Machine [a]
 many = foldrMany (:) []
 
 many1 :: Machine a -> Machine [a]
-many1 m = (:) <$> m <*> (many m)
+many1 m = (:) <$> m <*> many m
 
 foldMany :: (Monoid a) => Machine a -> Machine a
 foldMany = foldrMany mappend mempty
@@ -202,21 +205,61 @@ charCase c = satisfying (((==) `on` toUpper) c)
 oneOfChars :: String -> Machine Range
 oneOfChars s = satisfying (`elem` s)
 
+charRange :: Char -> Char -> Machine Range
+charRange from to = satisfying (\c -> from <= c && c <= to)
 
 str :: String -> Machine Range
-str [] = getRange
-str (x:xs) = Machine $ \i -> case i of
-                               Eof _ -> Failed
-                               Val n c -> if c == x
-                                          then fmap (mappend (singleton n)) (Cont $ str xs)
-                                          else Failed
+str = go mempty
+  where go r [] = fmap (mappend r) getRange
+        go r (x:xs) = Machine $ \i -> case i of
+                                        Eof _ -> Failed
+                                        Val n c -> if c == x
+                                                   then Cont $ go (r |+ n) xs
+                                                   else Failed
+
+data CharTrie = CharTrie [(Maybe Char, CharTrie)]
+  deriving (Show, Eq)
+
+buildTrie :: [String] -> CharTrie
+buildTrie xs = CharTrie $ map (fmap buildTrie) classes
+  where (emptyStr, nonEmpty) = partition null xs
+        bucket :: (Ord key) => (a -> (key, val)) -> [a] -> [(key, [val])]
+        bucket by = map by
+                    >>> sortBy (compare `on` fst)
+                    >>> groupBy ((==) `on` fst)
+                    >>> map (\entries@((key, _):_) -> (key, map snd entries))
+        classes :: [(Maybe Char, [String])]
+        classes = let bs = map (first Just) $ bucket (head &&& tail) nonEmpty
+                  in if null emptyStr
+                     then bs
+                     else (Nothing, []):bs
+
+-- | oneOfStr [x₁,x₂, …] is a slightly more efficient equivalent of
+-- str x₁ <|> str x₂ <|> …
+--
+-- The key difference is that it builds a dictionary in the form of
+-- trie in advance and uses it instead of holding many machines in parallel.
+-- On the list of C++ keywords, it's ~4 times faster.
+oneOfStr :: [String] -> Machine Range
+oneOfStr = go mempty . buildTrie
+  where go r (CharTrie []) = fmap (mappend r) getRange
+        go r (CharTrie xs) = Machine (match r xs)
+
+        match r t (Eof n) = case lookup Nothing t of
+                              Nothing -> Failed
+                              Just _ -> Done (r |+ n)
+        match r t (Val n c) = case lookup (Just c) t of
+                                 Just node -> Cont $ go (r |+ n) node
+                                 Nothing -> case lookup Nothing t of
+                                              Just _ -> Done r
+                                              Nothing -> Failed
 
 ----------------------------------------------------------------------
 -- Running the machines
 ----------------------------------------------------------------------
 
 runMachineText :: Machine a -> T.Text -> (Int, State a, T.Text)
-runMachineText machine text = go machine 0 text
+runMachineText machine = go machine 0
   where go m n s = case T.uncons s of
                      Just (x, xs) -> case step m (Val n x) of
                                        Cont next -> go next (n + 1) xs
@@ -224,7 +267,7 @@ runMachineText machine text = go machine 0 text
                      Nothing -> (n, step m (Eof n), T.empty)
 
 runMachine :: Machine a -> String -> (State a, String)
-runMachine machine string = go machine 0 string
+runMachine machine = go machine 0
   where go m n "" = (step m (Eof n), "")
         go m n s@(x:xs) = case step m (Val n x) of
                             Cont next -> go next (n + 1) xs

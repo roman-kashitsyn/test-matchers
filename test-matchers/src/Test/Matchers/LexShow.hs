@@ -72,6 +72,7 @@ data Token
 
 data TokType
   = TokNumber
+  | TokChar
   | TokString
   | TokIdent
   | TokSymbol
@@ -89,11 +90,11 @@ octit = satisfying isOctDigit
 hexit = satisfying isHexDigit
 
 number :: Machine (TokType, Range)
-number = annot TokNumber (float <|> decimal <|> octal <|> hex)
+number = annot TokNumber $ float <|> decimal <|> octal <|> hex
 
 decimal, float, octal, hex :: Machine Range
 decimal = foldMany1 digit
-float = decimal <> char '.' <> decimal <> opt (charCase 'e' <> (opt $ oneOfChars "+-") <> decimal)
+float = decimal <> char '.' <> decimal <> opt (charCase 'e' <> opt (oneOfChars "+-") <> decimal)
 octal = str "0o" <> foldMany1 octit
 hex = str "0x" <> foldMany1 hexit
 
@@ -105,7 +106,7 @@ data StrState
   deriving (Eq, Show)
 
 string :: Machine (TokType, Range)
-string = fmap (\(_, r) -> (TokString, r)) $ scan (StrStart, mempty) strScanner
+string = (\(_, r) -> (TokString, r)) <$> scan (StrStart, mempty) strScanner
   where strS StrStart '"' = Just StrInside
         strS StrStart _ = Nothing
         strS StrInside '"' = Just StrEnd
@@ -113,7 +114,7 @@ string = fmap (\(_, r) -> (TokString, r)) $ scan (StrStart, mempty) strScanner
         strS StrInside _ = Just StrInside
         strS StrEscape _ = Just StrInside
         strS StrEnd _ = Nothing
-        strScanner (s, r) n c = fmap (\s' -> (s', r <> singleton n)) $ strS s c
+        strScanner (s, r) n c = (\s' -> (s', r <> singleton n)) <$> strS s c
 
 ident :: Machine (TokType, Range)
 ident = annot TokIdent $ satisfying isFirstIdChar <> foldMany (satisfying isIdChar)
@@ -121,7 +122,7 @@ ident = annot TokIdent $ satisfying isFirstIdChar <> foldMany (satisfying isIdCh
         isIdChar c = isAlphaNum c || c == '_' || c == '\''
 
 punct :: Machine (TokType, Range)
-punct = annot TokPunct $ oneOfChars punctChars <|> foldr1 (<|>) (map str reserved)
+punct = annot TokPunct $ oneOfChars punctChars <|> oneOfStr reserved
 
 reserved :: [String]
 reserved = ["..", "::", "=", "\\", "|", "<-", "->", "@", "~", "=>"]
@@ -136,15 +137,66 @@ symbol :: Machine (TokType, Range)
 symbol = annot TokSymbol $ foldMany1 (satisfying isSymbolChar)
 
 fallback :: Machine (TokType, Range)
-fallback = annot TokUnknown $ foldMany1 (satisfying isWordChar)
+fallback = annot TokUnknown $ foldMany (satisfying isWordChar)
   where isWordChar c = not (isPunctuation c || isSpace c || c `elem` punctStarts)
 
 space :: Machine (TokType, Range)
 space = annot TokSpace $ foldMany1 (satisfying isSpace)
 
+chr :: Machine Range
+chr = normal <|> escape
+  where normal = satisfying (\c -> c /= '\'' && c /= '\\')
+
+charLit :: Machine (TokType, Range)
+charLit = annot TokChar $ ch' <> chr <> ch'
+  where ch' = char '\''
+
+escape :: Machine Range
+escape = char '\\' <> (charesc <|> ascii <|> decimal)
+  where charesc = oneOfChars "abfnrtv\\\"'&"
+
+ascii :: Machine Range
+ascii = oneOfStr [ "ACK"
+                 , "BEL"
+                 , "BS"
+                 , "CAN"
+                 , "CR"
+                 , "DC1"
+                 , "DC2"
+                 , "DC3"
+                 , "DC4"
+                 , "DEL"
+                 , "DLE"
+                 , "EM"
+                 , "ENQ"
+                 , "EOT"
+                 , "ESC"
+                 , "ETB"
+                 , "ETX"
+                 , "FF"
+                 , "FS"
+                 , "GS"
+                 , "HT"
+                 , "LF"
+                 , "NAK"
+                 , "NUL"
+                 , "RS"
+                 , "SI"
+                 , "SO"
+                 , "SOH"
+                 , "SP"
+                 , "STX"
+                 , "SUB"
+                 , "SYN"
+                 , "US"
+                 , "VT"
+                 ]
+        <|> char '^' <> (oneOfChars "@[\\]^_" <|> charRange 'A' 'Z')
+
 token :: Machine (TokType, Range)
 token = ident
         <|> punct
+        <|> charLit
         <|> number
         <|> string
         <|> symbol
@@ -152,14 +204,14 @@ token = ident
         <|> fallback
 
 tokenize :: Text -> [Token]
-tokenize text = let trimmed = T.strip text
-                in go (T.length trimmed) trimmed
+tokenize text = go (T.length text) text
   where
     substr (Range b e) = T.take (e - b) . T.drop b
     go n t =
       if T.null t
       then []
       else case runMachineText token t of
+             (len, _, _) | len == 0 -> error $ "Lexer stuck on " ++ show t
              (len, Done (tok, range), t') -> let tokT = substr range t
                                              in Token tok tokT : go (n - len) t'
              (len, _, t') -> Token TokUnknown (T.take len t) : go (n - len) t'
