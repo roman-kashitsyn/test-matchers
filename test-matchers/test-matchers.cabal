@@ -21,15 +21,35 @@ library
                      , Test.Matchers.Render
                      , Test.Matchers.LexShow
                      , Test.Matchers.PrettyShow
-
   other-modules:       RStateMonad
                      , Machines
 
   build-depends:       base >=4.8 && <5
+                     , containers >=0.4
+                     , internals
                      , prettyprinter >=1.1 && <2
                      , prettyprinter-ansi-terminal >=1.1 && <2
                      , text >=1 && <2
-                     , containers >=0.4
   hs-source-dirs:      src
   ghc-options:         -Wall
-  default-language:    Haskell2010 
+  default-language:    Haskell2010
+
+library internals
+  exposed-modules:     RStateMonad
+                     , Machines
+  build-depends:       base >=4.8 && <5
+                     , text >=1 && <2
+  hs-source-dirs:      src
+  ghc-options:         -Wall
+  default-language:    Haskell2010
+
+benchmark bench-machines
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   bench
+  main-is:          BenchMachines.hs
+  build-depends:    base
+                  , internals
+                  , deepseq
+                  , gauge
+                  , text
+  ghc-options:      -O2

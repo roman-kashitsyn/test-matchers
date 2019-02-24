@@ -133,11 +133,18 @@ prop_lex_handles_garbage garbage =
     Full tokens -> tokens `formString` garbage
     Partial _ -> discard
 
-prop_lex_can_parse_chars :: Char -> Property
-prop_lex_can_parse_chars c =
-  case lexShow maxBound (show c) of
-    Full tokens -> tokens `formString` show c .&. tokenType (head tokens) === TokChar
+parsesAsOneToken :: (Show a) => TokType -> a -> Property
+parsesAsOneToken tok x =
+  let showed = show x
+  in case lexShow maxBound showed of
+    Full tokens -> length tokens === 1 .&. tokens `formString` showed .&. tokenType (head tokens) === tok
     Partial _ -> discard
+
+prop_lex_can_parse_chars :: Char -> Property
+prop_lex_can_parse_chars = parsesAsOneToken TokChar
+
+prop_lex_can_parse_strings :: String -> Property
+prop_lex_can_parse_strings = parsesAsOneToken TokString
 
 propTests :: TestTree
 propTests
@@ -150,6 +157,7 @@ propTests
       [ testProperty "Lexing preserves formatting" prop_lex_keeps_formatting
       , testProperty "Lexing agrees with Text.Read.Lex" prop_lex_agrees_with_std_lex
       , testProperty "Lexing can parse chars" prop_lex_can_parse_chars
+      , testProperty "Lexing can parse strings" prop_lex_can_parse_strings
       , testProperty "Lexing can handle garbage" prop_lex_handles_garbage
       ]
     ]

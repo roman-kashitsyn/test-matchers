@@ -25,6 +25,7 @@ Stability:    experimental
 This module contains combinators for definining lexers that never
 backtrack.
 -}
+{-# LANGUAGE BangPatterns #-}
 module Machines where
 
 import Control.Applicative (Alternative(empty, (<|>)))
@@ -210,12 +211,12 @@ charRange from to = satisfying (\c -> from <= c && c <= to)
 
 str :: String -> Machine Range
 str = go mempty
-  where go r [] = fmap (mappend r) getRange
-        go r (x:xs) = Machine $ \i -> case i of
-                                        Eof _ -> Failed
-                                        Val n c -> if c == x
-                                                   then Cont $ go (r |+ n) xs
-                                                   else Failed
+  where go !r [] = fmap (mappend r) getRange
+        go !r (x:xs) = Machine $ \i -> case i of
+                                         Eof _ -> Failed
+                                         Val n c -> if c == x
+                                                    then Cont $ go (r |+ n) xs
+                                                    else Failed
 
 data CharTrie = CharTrie [(Maybe Char, CharTrie)]
   deriving (Show, Eq)
@@ -239,16 +240,16 @@ buildTrie xs = CharTrie $ map (fmap buildTrie) classes
 --
 -- The key difference is that it builds a dictionary in the form of
 -- trie in advance and uses it instead of holding many machines in parallel.
--- On the list of C++ keywords, it's ~4 times faster.
+-- On the list of C++ keywords, it's ~3 times faster.
 oneOfStr :: [String] -> Machine Range
 oneOfStr = go mempty . buildTrie
-  where go r (CharTrie []) = fmap (mappend r) getRange
-        go r (CharTrie xs) = Machine (match r xs)
+  where go !r (CharTrie []) = fmap (mappend r) getRange
+        go !r (CharTrie xs) = Machine (match r xs)
 
-        match r t (Eof n) = case lookup Nothing t of
-                              Nothing -> Failed
-                              Just _ -> Done (r |+ n)
-        match r t (Val n c) = case lookup (Just c) t of
+        match !r t (Eof n) = case lookup Nothing t of
+                               Nothing -> Failed
+                               Just _ -> Done (r |+ n)
+        match !r t (Val n c) = case lookup (Just c) t of
                                  Just node -> Cont $ go (r |+ n) node
                                  Nothing -> case lookup Nothing t of
                                               Just _ -> Done r
