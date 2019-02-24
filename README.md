@@ -105,7 +105,7 @@ isForkWith
   -> MatcherF f (Tree a)
   -> MatcherF f (Tree a)
 isForkWith matchL matchA matchR
-  = M.prism "Fork" (preview _Fork) (M.tuple3 matchLeft matchA matchR)
+  = M.prism "Fork" (preview _Fork) (M.tuple3 matchL matchA matchR)
 ```
 # Related resources
 
