@@ -27,6 +27,11 @@ Matchers](https://github.com/google/googletest/blob/master/googlemock/docs/Cheat
     [tasty](https://github.com/feuerbach/tasty). These integrations
     are provided by `hunit-matchers` and `tasty-matchers` packages.
 
+[^1]: Though this code can:
+    ```haskell
+    repeat 5 `shouldMatch` eq [5, 5..]
+    ```
+
 ## Short example
 
 ```haskell
@@ -102,19 +107,12 @@ isForkWith
 isForkWith matchL matchA matchR
   = M.prism "Fork" (preview _Fork) (M.tuple3 matchLeft matchA matchR)
 ```
-
 # Related resources
 
 There is a talk describing the motivation behind the library and some
 design choices made
 ([video](https://www.youtube.com/watch?v=6F_KYfe442Y),
 [slides](https://github.com/meiersi/HaskellerZ/blob/master/meetups/2018-10-25-embracing-the-failure/Slides.pdf)).
-
-# Footnotes
-[^1]: Though this code can:
-```haskell
-repeat 5 `shouldMatch` eq [5, 5..]
-```
 
 # Disclaimer
 
