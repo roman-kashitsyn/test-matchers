@@ -3,14 +3,29 @@
 A simple matcher combinators library for unit-testing heavily inspired
 by [GMock
 Matchers](https://github.com/google/googletest/blob/master/googlemock/docs/CheatSheet.md#matchers).
-The main purpose of the library is to make the error messages produced
-by test failures clearer and more useful.
 
-It easily integrates with test frameworks capable of executing HUnit assertions
-(e.g. [HUnit](https://github.com/hspec/HUnit#readme) or
-[hspec](https://hspec.github.io)) and
-[tasty](https://github.com/feuerbach/tasty). These integrations are provided by
-`hunit-matchers` and `tasty-matchers` packages.
+## Why do I need it?
+
+  * It provides a simple language to express and combine assertions.
+    Always feel like `Test.Hspec.Expectations` lacks the trivial
+    function you need? Fear no more.
+
+  * It produces detailed yet compact (and colorful) error messages in
+    case of a test failure.
+
+  * It highlights syntax within values it displays. All you need is
+    a Show instance. An un-readable one will work too. And yes, your
+    value can be infinite. This code won't eat all your RAM[^1]:
+    ```haskell
+    repeat 5 `shouldMatch` startsWith [6]
+    ```
+
+  * It easily integrates with many test frameworks capable of
+    executing HUnit assertions
+    (e.g. [HUnit](https://github.com/hspec/HUnit#readme) or
+    [hspec](https://hspec.github.io)) and
+    [tasty](https://github.com/feuerbach/tasty). These integrations
+    are provided by `hunit-matchers` and `tasty-matchers` packages.
 
 ## Short example
 
@@ -94,6 +109,12 @@ There is a talk describing the motivation behind the library and some
 design choices made
 ([video](https://www.youtube.com/watch?v=6F_KYfe442Y),
 [slides](https://github.com/meiersi/HaskellerZ/blob/master/meetups/2018-10-25-embracing-the-failure/Slides.pdf)).
+
+# Footnotes
+[^1]: Though this code can:
+```haskell
+repeat 5 `shouldMatch` eq [5, 5..]
+```
 
 # Disclaimer
 
