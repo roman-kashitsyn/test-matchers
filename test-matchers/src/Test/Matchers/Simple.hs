@@ -120,7 +120,7 @@ data Direction
 -- when some parts of the structure being matched are missing.  The
 -- @f@ parameter is there so that we can match not just pure values
 -- but IO actions as well, see the 'throws' combinator as an example.
-type MatcherF f a = Direction -> Maybe (f a) -> f MatchTree
+newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f MatchTree }
 
 -- | A (possibly empty) group of matchers. A set of matchers can be
 -- turned into a proper matcher via aggregation functions,
@@ -202,7 +202,7 @@ transformTree
   => (MatchTree -> MatchTree)
   -> MatcherF f a
   -> MatcherF f a
-transformTree f = fmap (fmap (fmap f))
+transformTree f = MatcherF . fmap (fmap (fmap f)) . unMatcherF
 
 -- | Changes the direction to it's opposite.
 flipDirection :: Direction -> Direction
@@ -225,11 +225,12 @@ predicate
   => (a -> Bool) -- ^ Predicate to use for matching
   -> (Message, Message) -- ^ Messages describing this predicate and it's negationOf.
   -> MatcherF f a
-predicate p descr dir v =
-  case v of
-    Nothing -> pure $ makeEmptyTree msg []
-    Just fa -> (\x -> makeFullTree (applyDirection dir (p x)) msg x []) <$> fa
-  where msg = pickDescription dir descr
+predicate p descr
+  = MatcherF $ \dir v ->
+                 let msg = pickDescription dir descr
+                 in case v of
+                      Nothing -> pure $ makeEmptyTree msg []
+                      Just fa -> (\x -> makeFullTree (applyDirection dir (p x)) msg x []) <$> fa
 
 
 aggregateWith :: (Show a, Applicative f)
@@ -237,15 +238,16 @@ aggregateWith :: (Show a, Applicative f)
               -> (Message, Message)
               -> MatcherSetF f a
               -> MatcherF f a
-aggregateWith aggr descr matcherSet dir value =
-  let subnodesF = matchSetF matcherSet Positive value
-      msgF = sequenceA $ fmap (fmap show) value
-  in liftA2 (\xs m -> MatchTree
-                      (applyDirection dir (aggr $ map mtValue xs))
-                      (pickDescription dir descr)
-                      []
-                      m xs)
-     subnodesF msgF
+aggregateWith aggr descr matcherSet
+  = MatcherF $ \dir value ->
+                 let subnodesF = matchSetF matcherSet Positive value
+                     msgF = sequenceA $ fmap (fmap show) value
+                 in liftA2 (\xs m -> MatchTree
+                             (applyDirection dir (aggr $ map mtValue xs))
+                             (pickDescription dir descr)
+                             []
+                             m xs)
+                    subnodesF msgF
 
 
 -- | Matcher that succeeds if the argument equals to the specified
@@ -368,7 +370,7 @@ singleton
   :: (Functor f)
   => MatcherF f a
   -> MatcherSetF f a
-singleton = MatcherSetF . fmap (fmap (fmap pure))
+singleton = MatcherSetF . fmap (fmap (fmap pure)) . unMatcherF
 
 -- | Constructs a matcher that succeed if all the matchers in the
 -- provided set succeed.
@@ -409,7 +411,7 @@ oneOf = oneOfSet . setOf
 negationOf
   :: MatcherF f a -- ^ The matcher to negationOf.
   -> MatcherF f a
-negationOf m d = m (flipDirection d)
+negationOf m = MatcherF $ \d -> unMatcherF m (flipDirection d)
 
 -- | A version of 'allOf' specialized for two submatchers.
 andAlso :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f a
@@ -449,52 +451,54 @@ each
   :: (Foldable t, Monad f, Show (t a))
   => MatcherF f a -- ^ Matcher for the elements of the container.
   -> MatcherF f (t a) -- ^ Matcher for the whole container.
-each m dir val =
-  case val of
-    Nothing -> makeEmptyTree descr . pure <$> fTree
-    Just fta -> do
-      ta <- fta
-      if null ta
-        then mkEmpty (applyDirection dir True) ta <$> fTree
-        else do subtrees <- traverse (m Positive . Just . pure) (toList ta)
-                pure $ makeFullTree
-                       (applyDirection dir $ all mtValue subtrees)
-                       descr ta subtrees
-
-  where descr = pickDescription dir (descrPos, descrNeg)
-        descrPos = hsep ["each", "element", "of", "the", "container"]
-        descrNeg = hsep ["container", "has", "at", "least", "one", "element", "that"]
-        mkEmpty outcome showedVal t = makeFullTree outcome descr showedVal [t]
-        fTree = m Positive Nothing
-
+each m
+  = MatcherF $ \dir val ->
+                 let
+                   descr = pickDescription dir (descrPos, descrNeg)
+                   descrPos = hsep ["each", "element", "of", "the", "container"]
+                   descrNeg = hsep ["container", "has", "at", "least", "one", "element", "that"]
+                   mkEmpty outcome showedVal t = makeFullTree outcome descr showedVal [t]
+                   fTree = unMatcherF m Positive Nothing
+                 in case val of
+                      Nothing -> makeEmptyTree descr . pure <$> fTree
+                      Just fta -> do
+                        ta <- fta
+                        if null ta
+                          then mkEmpty (applyDirection dir True) ta <$> fTree
+                          else do subtrees <- traverse (runMatcher m . pure) (toList ta)
+                                  pure $ makeFullTree
+                                    (applyDirection dir $ all mtValue subtrees)
+                                    descr ta subtrees
 -- | Checks that elements of the container are matched by the matchers
 -- exactly. The number of elements in the container should match the
 -- number of matchers in the list.
 elementsAre :: (Foldable t, Monad f, Show (t a))
             => [MatcherF f a] -- ^ List of matchers for the elements of the list.
             -> MatcherF f (t a) -- ^ Matcher for the whole container.
-elementsAre matcherList dir = maybe emptyTree mkTree
-  where
-    emptyTree = makeEmptyTree descr <$> sequenceA (map (\m -> m Positive Nothing) matcherList)
+elementsAre matcherList
+  = MatcherF $ \dir ->
+                 let
+                   emptyTree = makeEmptyTree descr <$> sequenceA (map (\m -> unMatcherF m Positive Nothing) matcherList)
 
-    mkTree fitems = do
-      items <- fitems
-      subnodes <- sequenceA $ go (toList items) matcherList 0
-      return $ makeFullTree (applyDirection dir (all mtValue subnodes)) name items subnodes
+                   mkTree fitems = do
+                     items <- fitems
+                     subnodes <- sequenceA $ go (toList items) matcherList 0
+                     return $ makeFullTree (applyDirection dir (all mtValue subnodes)) name items subnodes
 
-    numMatchers = length matcherList
-    name  = hsep ["container", "such", "that"]
-    name_ = hsep ["container", "such", "that", "not", "all", "of"]
-    descr = pickDescription dir (name, name_)
+                   numMatchers = length matcherList
+                   name  = hsep ["container", "such", "that"]
+                   name_ = hsep ["container", "such", "that", "not", "all", "of"]
+                   descr = pickDescription dir (name, name_)
 
-    sizeMessage  = hsep ["number", "of", "elements", "is", display numMatchers]
+                   sizeMessage  = hsep ["number", "of", "elements", "is", display numMatchers]
 
-    go (x:xs) (m:ms) n = m Positive (Just $ pure x) : go xs ms (n + 1)
-    go [] [] n = [pure $ makeFullTree True sizeMessage n []]
-    go moreItems@(_:_) [] n = [pure $ makeFullTree False sizeMessage (n + length moreItems) []]
-    go [] (m:_) n = [ m Positive Nothing
-                    , pure $ makeFullTree False sizeMessage n []
-                    ]
+                   go (x:xs) (m:ms) n = runMatcher m (pure x) : go xs ms (n + 1)
+                   go [] [] n = [pure $ makeFullTree True sizeMessage n []]
+                   go moreItems@(_:_) [] n = [pure $ makeFullTree False sizeMessage (n + length moreItems) []]
+                   go [] (m:_) n = [ unMatcherF m Positive Nothing
+                                   , pure $ makeFullTree False sizeMessage n []
+                                   ]
+                 in maybe emptyTree mkTree
 
 -- | Matcher that succeeds if the argument starts with the specified
 -- prefix.
@@ -581,7 +585,7 @@ isRightWith = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing 
 -- | Implementation of Data.Functor.Covariant.contramap.
 -- Avoid using it directly, prefer 'projection' instead.
 contramap :: (Functor f) => (s -> a) -> MatcherF f a -> MatcherF f s
-contramap f p dir = p dir . fmap (fmap f)
+contramap f p = MatcherF $ \dir -> unMatcherF p dir . fmap (fmap f)
 
 -- | Implementation of Data.Functor.Covariant.contramap for a matcher set.
 contramapSet
@@ -622,7 +626,7 @@ projectionWithSet
   -> (s -> a) -- ^ The projection from "s" to "a".
   -> MatcherSetF f a -- ^ The set of matchers for the projected "a".
   -> MatcherF f s
-projectionWithSet name proj set dir value =
+projectionWithSet name proj set = MatcherF $ \dir value ->
   let subnodesF = matchSetF (contramapSet proj set) dir value
       descr  = hsep ["projection", symbol name]
       msgF = sequenceA $ fmap (fmap show) value
@@ -653,7 +657,7 @@ prismWithSet
   -> (s -> Maybe a) -- ^ The selector for the alternative "a".
   -> MatcherSetF f a -- ^ The set of matchers for the alternative "a".
   -> MatcherF f s
-prismWithSet name p set dir v =
+prismWithSet name p set = MatcherF $ \dir v ->
   case v of
     Nothing -> makeEmptyTree descr <$> matchSetF set dir Nothing
     Just fs -> (\subtrees s -> makeFullTree (all mtValue subtrees) descr s subtrees)
@@ -682,7 +686,7 @@ tryExn ma =
 throws :: forall e a. (Exception e)
        => Matcher e  -- ^ Matcher for the exception value.
        -> MatcherF IO a
-throws exMatcher dir maybeAction = do
+throws exMatcher = MatcherF $ \dir maybeAction -> do
   let excName = symbol $ typeOf (undefined :: e)
       descr  = hsep ["action", "throwing", excName, "that"]
       descr_  = hsep ["action", "not", "throwing", excName, "that"]
@@ -690,16 +694,16 @@ throws exMatcher dir maybeAction = do
 
   case maybeAction of
     Nothing ->
-      return $ makeEmptyTree d [runIdentity $ exMatcher Positive Nothing]
+      return $ makeEmptyTree d [runIdentity $ unMatcherF exMatcher Positive Nothing]
     Just action -> do
       outcome <- tryExn action
       case outcome of
         NoExn -> return
-          $ makeEmptyTree d [runIdentity $ exMatcher Positive Nothing]
-        ExpectedExn exn -> return $ let node = match exn exMatcher
+          $ makeEmptyTree d [runIdentity $ unMatcherF exMatcher Positive Nothing]
+        ExpectedExn exn -> return $ let node = match exMatcher exn
                                     in makeFullTree (applyDirection dir (mtValue node)) d exn [node]
         OtherExn exn -> return $ makeFullTree (applyDirection dir False) d exn
-                                 [runIdentity $ exMatcher Positive Nothing]
+                                 [runIdentity $ unMatcherF exMatcher Positive Nothing]
 
 -- | Runs a matcher on the given effectful value and returns the
 -- `MatchTree` wrapped into the same effect.
@@ -707,21 +711,21 @@ runMatcher
   :: MatcherF f a -- ^ The matcher to run.
   -> f a -- ^ The effectful value.
   -> f MatchTree -- ^ The resulting match tree.
-runMatcher m value = m Positive (Just value)
+runMatcher m value = unMatcherF m Positive (Just value)
 
 -- | Runs a pure matcher on the given value and returns the
 -- 'MatchTree'.
 match
-  :: a -- ^ Value to match.
-  -> Matcher a -- ^ Matcher to run on the value.
+  :: Matcher a -- ^ Matcher to run on the value.
+  -> a -- ^ Value to match.
   -> MatchTree
-match x p = runIdentity $ runMatcher p (Identity x)
+match p x = runIdentity $ runMatcher p (Identity x)
 
 -- | Returns 'True' if the given value matches the provided pure
 -- matcher, otherwise returns 'False'.
 matches
-  :: a -- ^ Value to match.
-  -> Matcher a -- ^ Matcher to check
+  :: Matcher a -- ^ Matcher to check
+  -> a -- ^ Value to match.
   -> Bool
 matches x m = mtValue $ match x m
 

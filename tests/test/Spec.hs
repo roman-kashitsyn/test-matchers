@@ -99,24 +99,24 @@ main :: IO ()
 main = hspec $ do
   describe "Simple matchers" $ do
     it "can match for equality" $ do
-      match 5 (eq 5) `shouldBeEquiv` ok "is a value equal to 5" "5"
-      match 0 (eq 1) `shouldBeEquiv` nok "is a value equal to 1" "0"
-      match 0 (ne 1) `shouldBeEquiv` ok "is a value not equal to 1" "0"
+      match (eq 5) 5 `shouldBeEquiv` ok "is a value equal to 5" "5"
+      match (eq 1) 0 `shouldBeEquiv` nok "is a value equal to 1" "0"
+      match (ne 1) 0 `shouldBeEquiv` ok "is a value not equal to 1" "0"
 
     it "can match comparable types" $ do
-      match 3 (gt 1) `shouldBeEquiv` ok "is a value > 1" "3"
-      match 1 (ge 1) `shouldBeEquiv` ok "is a value ≥ 1" "1"
-      match 3 (ge 1) `shouldBeEquiv` ok "is a value ≥ 1" "3"
+      match (gt 1) 3 `shouldBeEquiv` ok "is a value > 1" "3"
+      match (ge 1) 1 `shouldBeEquiv` ok "is a value ≥ 1" "1"
+      match (ge 1) 3 `shouldBeEquiv` ok "is a value ≥ 1" "3"
 
-      match 3 (lt 4) `shouldBeEquiv` ok "is a value < 4" "3"
-      match 3 (le 4) `shouldBeEquiv` ok "is a value ≤ 4" "3"
-      match 3 (le 3) `shouldBeEquiv` ok "is a value ≤ 3" "3"
+      match (lt 4) 3 `shouldBeEquiv` ok "is a value < 4" "3"
+      match (le 4) 3 `shouldBeEquiv` ok "is a value ≤ 4" "3"
+      match (le 3) 3 `shouldBeEquiv` ok "is a value ≤ 3" "3"
 
-      match 3 (gt 4) `shouldBeEquiv` nok "is a value > 4" "3"
-      match 3 (ge 4) `shouldBeEquiv` nok "is a value ≥ 4" "3"
+      match (gt 4) 3 `shouldBeEquiv` nok "is a value > 4" "3"
+      match (ge 4) 3 `shouldBeEquiv` nok "is a value ≥ 4" "3"
 
-      match 3 (lt 1) `shouldBeEquiv` nok "is a value < 1" "3"
-      match 3 (le 1) `shouldBeEquiv` nok "is a value ≤ 1" "3"
+      match (lt 1) 3 `shouldBeEquiv` nok "is a value < 1" "3"
+      match (le 1) 3 `shouldBeEquiv` nok "is a value ≤ 1" "3"
 
     it "can approx. match floats" $ do
       let almost1 = (sum $ replicate 10 0.1) :: Double
@@ -134,19 +134,19 @@ main = hspec $ do
       0.1 `shouldNotMatch` numberNear 0.00005 0
 
     it "can match tuples" $ do
-      match (3, 4) (tuple2 (eq 3) (gt 1)) `shouldBeEquiv`
+      match (tuple2 (eq 3) (gt 1)) (3, 4) `shouldBeEquiv`
         mtOk "all of" (Just "(3,4)")
         [ mtOkL "is a value equal to 3" "fst" (Just "3") []
         , mtOkL "is a value > 1" "snd" (Just "4") []
         ]
 
-      match (3, 4, 5) (tuple3 (eq 3) (gt 1) (gt 3)) `shouldBeEquiv`
+      match (tuple3 (eq 3) (gt 1) (gt 3)) (3, 4, 5) `shouldBeEquiv`
         mtOk "all of" (Just "(3,4,5)")
         [ mtOkL "is a value equal to 3" "_1" (Just "3") []
         , mtOkL "is a value > 1" "_2" (Just "4") []
         , mtOkL "is a value > 3" "_3" (Just "5") []
         ]
-      match (3, 4, 5) (tuple3 (lt 4) (lt 4) (lt 4)) `shouldBeEquiv`
+      match (tuple3 (lt 4) (lt 4) (lt 4)) (3, 4, 5) `shouldBeEquiv`
         mtNok "all of" (Just "(3,4,5)")
         [ mtOkL "is a value < 4" "_1" (Just "3") []
         , mtNokL "is a value < 4" "_2" (Just "4") []
@@ -154,52 +154,52 @@ main = hspec $ do
         ]
 
     it "can match Maybe a" $ do
-      match (Nothing :: Maybe Int) isNothing `shouldBeEquiv`
+      match isNothing (Nothing :: Maybe Int) `shouldBeEquiv`
         ok "is Nothing" "Nothing"
-      match (Just 5) isNothing `shouldBeEquiv`
+      match isNothing (Just 5) `shouldBeEquiv`
         nok "is Nothing" "Just 5"
-      match (Nothing :: Maybe Int) (negationOf isNothing) `shouldBeEquiv`
+      match (negationOf isNothing) (Nothing :: Maybe Int) `shouldBeEquiv`
         nok "is not Nothing" "Nothing"
-      match (Just 5) (negationOf isNothing) `shouldBeEquiv`
+      match (negationOf isNothing) (Just 5) `shouldBeEquiv`
         ok "is not Nothing" "Just 5"
 
-      match (Nothing :: Maybe Int) (isJustWith $ eq 5) `shouldBeEquiv`
+      match (isJustWith $ eq 5) (Nothing :: Maybe Int) `shouldBeEquiv`
         mtNok "prism \"Just\"" (Just "Nothing")
         [nok' "is a value equal to 5"]
-      match (Just 5) (isJustWith $ eq 5) `shouldBeEquiv`
+      match (isJustWith $ eq 5) (Just 5) `shouldBeEquiv`
         mtOk "prism \"Just\"" (Just "Just 5")
         [ok "is a value equal to 5" "5"]
 
     it "can match Either a b" $ do
-      match (Left 3 :: Either Int String) (isLeftWith (eq 3)) `shouldBeEquiv`
+      match (isLeftWith (eq 3)) (Left 3 :: Either Int String) `shouldBeEquiv`
         mtOk "prism \"Left\"" (Just "Left 3") [ok "is a value equal to 3" "3"]
-      match (Right "ok" :: Either Int String) (isRightWith anything) `shouldBeEquiv`
+      match (isRightWith anything) (Right "ok" :: Either Int String) `shouldBeEquiv`
         mtOk "prism \"Right\"" (Just "Right \"ok\"") [ok "anything" "\"ok\""]
 
     it "can match list prefixes/suffixes/infixes" $ do
-      match [1, 1, 2, 3] (startsWith [1, 1]) `shouldBeEquiv`
+      match (startsWith [1, 1]) [1, 1, 2, 3] `shouldBeEquiv`
         ok "starts with [1,1]" "[1,1,2,3]"
-      match [1, 1, 2, 3] (endsWith [2, 3]) `shouldBeEquiv`
+      match (endsWith [2, 3]) [1, 1, 2, 3] `shouldBeEquiv`
         ok "ends with [2,3]" "[1,1,2,3]"
-      match [1, 1, 2, 3] (hasInfix [1, 2]) `shouldBeEquiv`
+      match (hasInfix [1, 2]) [1, 1, 2, 3] `shouldBeEquiv`
         ok "has infix [1,2]" "[1,1,2,3]"
 
     it "can match lists" $ do
-      match ([] :: [Int])  (elementsAre []) `shouldBeEquiv`
+      match (elementsAre []) ([] :: [Int])  `shouldBeEquiv`
         mtOk "container such that" (Just "[]")
         [ok "number of elements is 0" "0"]
 
-      match [] (elementsAre [eq 5]) `shouldBeEquiv`
+      match (elementsAre [eq 5]) [] `shouldBeEquiv`
         mtNok "container such that" (Just "[]")
         [ nok' "is a value equal to 5"
         , nok "number of elements is 1" "0"
         ]
-      match [5, 7] (elementsAre [eq 5]) `shouldBeEquiv`
+      match (elementsAre [eq 5]) [5, 7] `shouldBeEquiv`
         mtNok "container such that" (Just "[5,7]")
         [ ok "is a value equal to 5" "5"
         , nok "number of elements is 1" "2"
         ]
-      match [5, 7] (elementsAre [eq 5, gt 5]) `shouldBeEquiv`
+      match (elementsAre [eq 5, gt 5]) [5, 7] `shouldBeEquiv`
         mtOk "container such that" (Just "[5,7]")
         [ ok "is a value equal to 5" "5"
         , ok "is a value > 5" "7"
@@ -207,56 +207,56 @@ main = hspec $ do
         ]
 
     it "can match each element of a list" $ do
-      match [1,2] (each $ gt 0) `shouldBeEquiv`
+      match  (each $ gt 0) [1,2] `shouldBeEquiv`
         mtOk "each element of the container" (Just "[1,2]")
         [ ok "is a value > 0" "1"
         , ok "is a value > 0" "2"
         ]
 
-      match [-1,1] (each $ gt 0) `shouldBeEquiv`
+      match (each $ gt 0) [-1,1] `shouldBeEquiv`
         mtNok "each element of the container" (Just "[-1,1]")
         [ nok "is a value > 0" "-1"
         , ok "is a value > 0" "1"
         ]
 
-      match [] (each $ gt 0) `shouldBeEquiv`
+      match (each $ gt 0) [] `shouldBeEquiv`
         mtOk "each element of the container" (Just "[]")
         [ nok' "is a value > 0" ]
 
-      match [] (negationOf $ each $ gt 0) `shouldBeEquiv`
+      match (negationOf $ each $ gt 0) [] `shouldBeEquiv`
         mtNok "container has at least one element that" (Just "[]")
         [ nok' "is a value > 0" ]
 
-      match [0,5] (negationOf $ each $ lt 5) `shouldBeEquiv`
+      match (negationOf $ each $ lt 5) [0,5] `shouldBeEquiv`
         mtOk "container has at least one element that" (Just "[0,5]")
         [ ok "is a value < 5" "0"
         , nok "is a value < 5" "5"
         ]
 
     it "can aggregate matchers" $ do
-      match 1 (allOf [gt 0, lt 5]) `shouldBeEquiv`
+      match (allOf [gt 0, lt 5]) 1 `shouldBeEquiv`
         mtOk "all of" (Just "1")
         [ ok "is a value > 0" "1"
         , ok "is a value < 5" "1"
         ]
-      match 1 (allOf [gt 1, lt 5]) `shouldBeEquiv`
+      match (allOf [gt 1, lt 5]) 1 `shouldBeEquiv`
         mtNok "all of" (Just "1")
         [ nok "is a value > 1" "1"
         , ok "is a value < 5" "1"
         ]
-      match 1 (oneOf [lt 1, ne 0]) `shouldBeEquiv`
+      match (oneOf [lt 1, ne 0]) 1 `shouldBeEquiv`
         mtOk "one of" (Just "1")
         [ nok "is a value < 1" "1"
         , ok "is a value not equal to 0" "1"
         ]
-      match 1 (oneOf [lt (-1), gt 1]) `shouldBeEquiv`
+      match (oneOf [lt (-1), gt 1]) 1 `shouldBeEquiv`
         mtNok "one of" (Just "1")
         [ nok "is a value < -1" "1"
         , nok "is a value > 1" "1"
         ]
-      match (1, 2) (negationOf $ allOf [ projection "fst" fst (eq 1)
-                                       , projection "snd" snd (eq 2)
-                                       ])
+      match (negationOf $ allOf [ projection "fst" fst (eq 1)
+                                , projection "snd" snd (eq 2)
+                                ]) (1, 2)
         `shouldBeEquiv`
         mtNok "not all of" (Just "(1,2)")
         [ mtOk "projection \"fst\"" (Just "(1,2)")
@@ -267,18 +267,18 @@ main = hspec $ do
 
   describe "Container matching" $ do
     it "can check if container is empty" $ do
-      match (Nothing :: Maybe Int) isEmpty `shouldBeEquiv` ok "is empty" "Nothing"
-      match ([] :: [Int]) isEmpty `shouldBeEquiv` ok "is empty" "[]"
-      match (Just 1) isEmpty `shouldBeEquiv` nok "is empty" "Just 1"
-      match [1,2] isEmpty `shouldBeEquiv` nok "is empty" "[1,2]"
-      match [1] isNotEmpty `shouldBeEquiv` ok "is not empty" "[1]"
-      match ([] :: [Int]) isNotEmpty `shouldBeEquiv` nok "is not empty" "[]"
+      match isEmpty (Nothing :: Maybe Int) `shouldBeEquiv` ok "is empty" "Nothing"
+      match isEmpty ([] :: [Int]) `shouldBeEquiv` ok "is empty" "[]"
+      match isEmpty (Just 1) `shouldBeEquiv` nok "is empty" "Just 1"
+      match isEmpty [1,2] `shouldBeEquiv` nok "is empty" "[1,2]"
+      match isNotEmpty [1] `shouldBeEquiv` ok "is not empty" "[1]"
+      match isNotEmpty ([] :: [Int]) `shouldBeEquiv` nok "is not empty" "[]"
 
     it "can check the length of a container" $ do
-      match (Just 1) (hasLength $ gt 0) `shouldBeEquiv`
+      match (hasLength $ gt 0) (Just 1) `shouldBeEquiv`
         mtOk "projection \"length\"" (Just "Just 1")
         [ ok "is a value > 0" "1" ]
-      match [1,2,3] (hasLength $ eq 4) `shouldBeEquiv`
+      match (hasLength $ eq 4) [1,2,3] `shouldBeEquiv`
         mtNok "projection \"length\"" (Just "[1,2,3]")
         [ nok "is a value equal to 4" "3" ]
 
@@ -383,7 +383,7 @@ main = hspec $ do
       t `shouldMatch` treeEq t
 
     it "can fuse prisms with all of" $
-      match (Fork (Leaf 1) (Leaf 2)) (isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 2)) `shouldBeEquiv`
+      match (isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 2)) (Fork (Leaf 1) (Leaf 2)) `shouldBeEquiv`
         mtOk "prism \"Fork\"" (Just "Fork (Leaf 1) (Leaf 2)")
         [ mtOkL "prism \"Leaf\"" "left" (Just "Leaf 1")
           [ok "is a value equal to 1" "1"]

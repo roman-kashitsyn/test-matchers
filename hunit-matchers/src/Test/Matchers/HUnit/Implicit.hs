@@ -101,7 +101,7 @@ shouldMatch
   => a -- ^ The value that should pass the test.
   -> Matcher a  -- ^ The matcher to run.
   -> Assertion
-shouldMatch x m = treeToAssertion ?matchersOptionsAction (match x m)
+shouldMatch x m = treeToAssertion ?matchersOptionsAction (match m x)
 
 shouldNotMatch
   :: (?matchersOptionsAction :: IO PPOptions)

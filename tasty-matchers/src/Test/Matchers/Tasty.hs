@@ -122,7 +122,7 @@ testCase :: String -> MatchersTest -> TestTree
 testCase = singleTest
 
 shouldMatch :: a -> Matcher a -> MatchersTest
-shouldMatch v m = MatchersTest $ pure (match v m)
+shouldMatch v m = MatchersTest $ pure (match m v)
 
 shouldNotMatch :: a -> Matcher a -> MatchersTest
 shouldNotMatch v m = shouldMatch v (negationOf m)

@@ -106,7 +106,9 @@ prop_proj_dir_invariant =
   let checkTree val root = mtValue root == val && all (checkTree val) (mtSubnodes root)
   in \x -> forAll (elements [Positive, Negative]) $ \dir ->
     let m = projection "id" id (eq x)
-        tree = runIdentity $ m dir (Just $ Identity (x :: Int))
+        tree = match (case dir of
+                         Positive -> m
+                         Negative -> negationOf m) x
         treeView = prettyPrint defaultPPOptions tree
     in counterexample treeView $ checkTree (dir == Positive) tree
 
