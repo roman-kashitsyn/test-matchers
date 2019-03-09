@@ -46,3 +46,14 @@ test-suite properties-test
                      , tasty-quickcheck
   default-language:    Haskell2010
   ghc-options:         -Wall
+
+test-suite quickcheck-tests
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             QC.hs
+  build-depends:       base >=4.8 && <5
+                     , QuickCheck >=2.9
+                     , test-matchers <1
+                     , quickcheck-matchers <1
+  default-language:    Haskell2010
+  ghc-options:         -Wall

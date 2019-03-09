@@ -23,9 +23,11 @@ Matchers](https://github.com/google/googletest/blob/master/googlemock/docs/Cheat
   * It easily integrates with many test frameworks capable of
     executing HUnit assertions
     (e.g. [HUnit](https://github.com/hspec/HUnit#readme) or
-    [hspec](https://hspec.github.io)) and
-    [tasty](https://github.com/feuerbach/tasty). These integrations
-    are provided by `hunit-matchers` and `tasty-matchers` packages.
+    [hspec](https://hspec.github.io)),
+    [tasty](https://github.com/feuerbach/tasty) and
+    [QuickCheck](http://hackage.haskell.org/package/QuickCheck). These
+    integrations are provided by `hunit-matchers`, `tasty-matchers`
+    and `quickcheck-matchers` packages.
 
 [^1]: Though this code can:
     ```haskell

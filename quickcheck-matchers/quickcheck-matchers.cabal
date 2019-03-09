@@ -1,0 +1,22 @@
+name:                quickcheck-matchers
+version:             0.1.0.0
+synopsis:            An integration layer between test-matchers and QuickCheck.
+-- description
+license:             Apache-2.0
+author:              Roman Kashitsyn
+maintainer:          roman.kashitsyn@gmail.com
+copyright:           2018 Google LLC
+category:            Testing
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Test.Matchers.QuickCheck
+
+  build-depends:       base >= 4.8 && <5
+                     , test-matchers <1
+                     , QuickCheck >=2.8
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  ghc-options:         -Wall -Wno-orphans
