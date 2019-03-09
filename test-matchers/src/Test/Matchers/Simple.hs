@@ -233,11 +233,12 @@ predicate p descr
                       Just fa -> (\x -> makeFullTree (applyDirection dir (p x)) msg x []) <$> fa
 
 
-aggregateWith :: (Show a, Applicative f)
-              => ([Bool] -> Bool)
-              -> (Message, Message)
-              -> MatcherSetF f a
-              -> MatcherF f a
+aggregateWith
+  :: (Show a, Applicative f)
+  => ([Bool] -> Bool)
+  -> (Message, Message)
+  -> MatcherSetF f a
+  -> MatcherF f a
 aggregateWith aggr descr matcherSet
   = MatcherF $ \dir value ->
                  let subnodesF = matchSetF matcherSet Positive value
@@ -252,10 +253,9 @@ aggregateWith aggr descr matcherSet
 
 -- | Matcher that succeeds if the argument equals to the specified
 -- value.
-eq
-  :: (Eq a, Show a, Applicative f)
-  => a -- ^ The value that the argument must be equal to
-  -> MatcherF f a
+eq :: (Eq a, Show a, Applicative f)
+   => a -- ^ The value that the argument must be equal to
+   -> MatcherF f a
 eq value = predicate (== value) (descr, descr_)
   where descr  = hsep ["is", "a", "value", "equal", "to", display value]
         descr_ = hsep ["is", "a", "value", "not", "equal", "to", display value]
@@ -263,10 +263,9 @@ eq value = predicate (== value) (descr, descr_)
 -- | Matcher that succeeds if the argument is not equal to the specified value.
 --
 -- This matcher is the complement of 'eq'.
-ne
-  :: (Eq a, Show a, Applicative f)
-  => a -- ^ The value that the argument must be not equal to.
-  -> MatcherF f a
+ne :: (Eq a, Show a, Applicative f)
+   => a -- ^ The value that the argument must be not equal to.
+   -> MatcherF f a
 ne = negationOf . eq
 
 -- | Matcher that succeeds if the argument (which is a number) is not
@@ -414,11 +413,19 @@ negationOf
 negationOf m = MatcherF $ \d -> unMatcherF m (flipDirection d)
 
 -- | A version of 'allOf' specialized for two submatchers.
-andAlso :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f a
+andAlso
+  :: (Show a, Applicative f)
+  => MatcherF f a
+  -> MatcherF f a
+  -> MatcherF f a
 andAlso l r = allOf [l, r]
 
 -- | A version of 'oneOf' specialized for two submatchers.
-orElse :: (Show a, Applicative f) => MatcherF f a -> MatcherF f a -> MatcherF f a
+orElse
+  :: (Show a, Applicative f)
+  => MatcherF f a
+  -> MatcherF f a
+  -> MatcherF f a
 orElse l r = oneOf [l, r]
 
 -- | Checks that the container has no values.
@@ -472,9 +479,10 @@ each m
 -- | Checks that elements of the container are matched by the matchers
 -- exactly. The number of elements in the container should match the
 -- number of matchers in the list.
-elementsAre :: (Foldable t, Monad f, Show (t a))
-            => [MatcherF f a] -- ^ List of matchers for the elements of the list.
-            -> MatcherF f (t a) -- ^ Matcher for the whole container.
+elementsAre
+  :: (Foldable t, Monad f, Show (t a))
+  => [MatcherF f a] -- ^ List of matchers for the elements of the list.
+  -> MatcherF f (t a) -- ^ Matcher for the whole container.
 elementsAre matcherList
   = MatcherF $ \dir ->
                  let
@@ -502,9 +510,10 @@ elementsAre matcherList
 
 -- | Matcher that succeeds if the argument starts with the specified
 -- prefix.
-startsWith :: (Applicative f, Show a, Eq a)
-           => [a]            -- ^ The prefix the list is expected to have.
-           -> MatcherF f [a]
+startsWith
+  :: (Applicative f, Show a, Eq a)
+  => [a]            -- ^ The prefix the list is expected to have.
+  -> MatcherF f [a]
 startsWith xs = predicate (xs `isPrefixOf`)
                 ( hsep ["starts", "with", display xs]
                 , hsep ["does", "not", "start", "with", display xs]
@@ -512,18 +521,20 @@ startsWith xs = predicate (xs `isPrefixOf`)
 
 -- | Matcher that succeeds if the argument ends with the specified
 -- suffix.
-endsWith :: (Applicative f, Show a, Eq a)
-           => [a]            -- ^ The suffix the list is expected to have.
-           -> MatcherF f [a]
+endsWith
+  :: (Applicative f, Show a, Eq a)
+  => [a]            -- ^ The suffix the list is expected to have.
+  -> MatcherF f [a]
 endsWith xs = predicate (xs `isSuffixOf`)
               ( hsep ["ends", "with", display xs]
               , hsep ["does", "not", "end", "with", display xs]
               )
 
 -- | Matcher that succeeds if the argument contains the given infix.
-hasInfix :: (Applicative f, Show a, Eq a)
-           => [a]            -- ^ The infix the list is expected to have.
-           -> MatcherF f [a]
+hasInfix
+  :: (Applicative f, Show a, Eq a)
+  => [a]            -- ^ The infix the list is expected to have.
+  -> MatcherF f [a]
 hasInfix xs = predicate (xs `isInfixOf`)
               ( hsep ["has", "infix", display xs]
               , hsep ["does", "not", "have", "infix", display xs]
@@ -584,7 +595,11 @@ isRightWith = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing 
 
 -- | Implementation of Data.Functor.Covariant.contramap.
 -- Avoid using it directly, prefer 'projection' instead.
-contramap :: (Functor f) => (s -> a) -> MatcherF f a -> MatcherF f s
+contramap
+  :: (Functor f)
+  => (s -> a)
+  -> MatcherF f a
+  -> MatcherF f s
 contramap f p = MatcherF $ \dir -> unMatcherF p dir . fmap (fmap f)
 
 -- | Implementation of Data.Functor.Covariant.contramap for a matcher set.
@@ -672,9 +687,10 @@ data ActionOutcome e
   | ExpectedExn e          -- ^ The action threw an exception of the expected type.
   | OtherExn SomeException -- ^ The action threw an unexpected exception.
 
-tryExn :: forall a e. (Exception e)
-       => IO a
-       -> IO (ActionOutcome e)
+tryExn
+  :: forall a e. (Exception e)
+  => IO a
+  -> IO (ActionOutcome e)
 tryExn ma =
   fmap (const NoExn) ma `catches`
   [ Handler (\(exn :: e) -> pure $ ExpectedExn exn)
@@ -683,9 +699,10 @@ tryExn ma =
 
 -- | Checks that an IO action throws an exception satisfying the
 -- given matcher.
-throws :: forall e a. (Exception e)
-       => Matcher e  -- ^ Matcher for the exception value.
-       -> MatcherF IO a
+throws
+  :: forall e a. (Exception e)
+  => Matcher e  -- ^ Matcher for the exception value.
+  -> MatcherF IO a
 throws exMatcher = MatcherF $ \dir maybeAction -> do
   let excName = symbol $ typeOf (undefined :: e)
       descr  = hsep ["action", "throwing", excName, "that"]
