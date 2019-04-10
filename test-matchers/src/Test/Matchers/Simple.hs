@@ -137,10 +137,10 @@ newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f Ma
 -- '&>' operator.
 --
 -- @
---           ╭───────── &. ─────────┬───────────────────────╮
---           ┴                      ┴                       ╽
---           a                      b                     (a,b)
---           ┬                      ┬                       ┬
+--
+--         ╭───╮                  ╭───╮                 ╭───────╮
+--         │ a │        &.        │ b │        =        │ (a,b) │
+--         ╰─┬─╯                  ╰─┬─╯                 ╰───┬───╯
 --           ╽                      ╽                       ╽
 --  ╭─────────────────╮    ╭─────────────────╮   ╭─────────────────────╮
 --  │ MatcherSetF f a │ &> │ MatcherSetF f a │ = │ MatcherSetF f (a,b) │
@@ -151,8 +151,9 @@ newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f Ma
 -- and is achieved via 'mappend'.
 --
 -- @
---                       a
---                       ┬
+--                     ╭───╮
+--                     │ a │
+--                     ╰─┬─╯
 --  ╭─────────────────╮  │
 --  │ MatcherSetF f a │ ╾┤
 --  ╰─────────────────╯  │
