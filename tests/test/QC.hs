@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -}
 
-import Test.Matchers (Matcher, labeled, contramap, eqR)
+import Test.Matchers (MatchTree, match, projection, eq)
 import Test.Matchers.QuickCheck ()
 import Test.QuickCheck (quickCheckResult, isSuccess)
 import System.Exit (exitSuccess, exitFailure)
 
-prop_reverse_involutive :: Matcher [Int]
-prop_reverse_involutive = labeled "reverse.reverse involutive"
-                          $ contramap (\x -> (reverse $ reverse x, x)) eqR
+prop_reverse_involutive :: [Int] -> MatchTree
+prop_reverse_involutive xs = match (pReverse $ pReverse $ eq xs) xs
+  where pReverse = projection "reverse" reverse
 
 main :: IO ()
 main = do

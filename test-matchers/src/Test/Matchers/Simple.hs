@@ -39,13 +39,10 @@ module Test.Matchers.Simple
   , MatchTree(..)
   , Direction(..)
   , predicate
-  , relation
 
   -- * Matchers for 'Eq' and 'Ord' types
   , eq
   , ne
-  , eqR
-  , neR
 
   , lt
   , le
@@ -260,16 +257,6 @@ predicate p descr
                       Nothing -> pure $ makeEmptyTree msg []
                       Just fa -> (\x -> makeFullTree (applyDirection dir (p x)) msg x []) <$> fa
 
--- | Makes a matcher that verify that given relation holds.
-relation
-  :: (Show a, Show b, Applicative f)
-  => (a -> b -> Bool) -- ^ The relation to verify
-  -> (Message, Message) -- ^ Symbol of the relation and symbol of its inverse
-  -> MatcherF f (a, b)
-relation rel (name, neg) = predicate (uncurry rel) ( hsep ["#1", name, "#2", "holds"]
-                                                   , hsep ["#1", neg, "#2", "holds"]
-                                                   )
-
 aggregateWith
   :: (Show a, Applicative f)
   => ([Bool] -> Bool)
@@ -304,20 +291,6 @@ ne :: (Eq a, Show a, Applicative f)
    => a -- ^ The value that the argument must be not equal to.
    -> MatcherF f a
 ne = negationOf . eq
-
--- | Matcher that succeeds if the first element of the input pair is
--- equal to the second element of the pair.
---
--- This matcher is the complement of 'neR'.
-eqR :: (Eq a, Show a, Applicative f) => MatcherF f (a, a)
-eqR = relation (==) (str "=", fancyChar '≠' "/=")
-
--- | Matcher that succeeds if the first element of the input pair is
--- NOT equal to the second element of the pair.
---
--- This matcher is the complement of 'eqR'
-neR :: (Eq a, Show a, Applicative f) => MatcherF f (a, a)
-neR = negationOf eqR
 
 -- | Matcher that succeeds if the argument (which is a number) is not
 -- further than the specified absolute error from the given value.

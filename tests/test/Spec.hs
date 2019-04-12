@@ -152,12 +152,6 @@ main = hspec $ do
         , mtNokL "is a value < 4" "_3" (Just "5") []
         ]
 
-    it "can match on relations" $ do
-      match eqR (5, 3) `shouldBeEquiv` nok "#1 = #2 holds" "(5,3)"
-      match eqR (1, 1) `shouldBeEquiv` ok  "#1 = #2 holds" "(1,1)"
-      match neR (5, 3) `shouldBeEquiv` ok  "#1 ≠ #2 holds" "(5,3)"
-      match neR (1, 1) `shouldBeEquiv` nok "#1 ≠ #2 holds" "(1,1)"
-
     it "can match Maybe a" $ do
       match isNothing (Nothing :: Maybe Int) `shouldBeEquiv`
         ok "is Nothing" "Nothing"
