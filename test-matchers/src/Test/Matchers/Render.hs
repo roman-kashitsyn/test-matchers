@@ -38,6 +38,7 @@ import Test.Matchers.LexShow (TokType(..))
 import qualified Test.Matchers.Message as MSG
 import Test.Matchers.Simple
 
+import Data.Tuple (swap)
 import qualified Data.IntMap as IM
 import Data.List (intersperse)
 import qualified Data.Map as M
@@ -134,7 +135,6 @@ renderAsTree opts t =
   else doc <> PP.hardline <> "where:" <> PP.hardline <> PP.indent 2 (renderRefs refs)
   where
     (doc, refs) = runRState (renderAsTreeWithRefs t) opts M.empty
-    swap (x, y) = (y, x)
     renderRefs = PP.vsep . map renderRef . IM.toList . IM.fromList . map swap . M.toList
     renderRef (refId, val) = displayRef refId <+> displayValue opts val
 
