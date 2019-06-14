@@ -66,6 +66,7 @@ module Test.Matchers.Simple
   , andAlso
   , orElse
   , contramap
+  , contramapSet
   , labeled
 
   -- * Matchers for sequences
