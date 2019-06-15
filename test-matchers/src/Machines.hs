@@ -26,6 +26,7 @@ This module contains combinators for definining lexers that never
 backtrack.
 -}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 module Machines where
 
 import Control.Applicative (Alternative(empty, (<|>)))
@@ -151,11 +152,11 @@ opt m = Machine $ \i -> case step m i of
 
 foldrMany :: (a -> b -> b) -> b -> Machine a -> Machine b
 foldrMany f b m = Machine $ \i -> case i of
-                                   Eof _ -> Done b
-                                   (Val _ _) -> case step m i of
-                                                  Failed -> Done b
-                                                  Done x -> Done $ f x b
-                                                  Cont next -> Cont (f <$> next <*> foldrMany f b m)
+                                    Eof _ -> Done b
+                                    (Val _ _) -> case step m i of
+                                                   Failed -> Done b
+                                                   Done x -> Done $ f x b
+                                                   Cont next -> Cont (f <$> next <*> foldrMany f b m)
 
 many :: Machine a -> Machine [a]
 many = foldrMany (:) []
@@ -170,16 +171,16 @@ foldMany1 :: (Monoid a) => Machine a -> Machine a
 foldMany1 m = mappend <$> m <*> foldMany m
 
 scan :: s -> (s -> Int -> Char -> Maybe s) -> Machine s
-scan s next = Machine $ \i -> case i of
-                                Eof _ -> Done s
-                                Val n c -> case next s n c of
-                                             Nothing -> Done s
-                                             Just s' -> Cont (scan s' next)
+scan s next = Machine $ \case
+                           Eof _ -> Done s
+                           Val n c -> case next s n c of
+                                        Nothing -> Done s
+                                        Just s' -> Cont (scan s' next)
 
 guard :: (Char -> Bool) -> Machine ()
-guard p = Machine $ \i -> case i of
-                             Eof _ -> Failed
-                             Val _ c -> if p c then Done () else Failed
+guard p = Machine $ \case
+                      Eof _ -> Failed
+                      Val _ c -> if p c then Done () else Failed
 
 skipSpaces :: Machine ()
 skipSpaces = foldMany (satisfying isSpace) $> ()
@@ -189,11 +190,11 @@ skipSpaces = foldMany (satisfying isSpace) $> ()
 ----------------------------------------------------------------------
 
 satisfying :: (Char -> Bool) -> Machine Range
-satisfying p = Machine $ \i -> case i of
-                                 Eof _ -> Failed
-                                 Val n c -> if p c
-                                            then Cont $ pure $ Range n (n + 1)
-                                            else Failed
+satisfying p = Machine $ \case
+                            Eof _ -> Failed
+                            Val n c -> if p c
+                                       then Cont $ pure $ Range n (n + 1)
+                                       else Failed
 
 getRange :: Machine Range
 getRange = Machine $ \i -> let n = position i in Done $ Range n n
@@ -213,11 +214,11 @@ charRange from to = satisfying (\c -> from <= c && c <= to)
 str :: String -> Machine Range
 str = go mempty
   where go !r [] = fmap (mappend r) getRange
-        go !r (x:xs) = Machine $ \i -> case i of
-                                         Eof _ -> Failed
-                                         Val n c -> if c == x
-                                                    then Cont $ go (r |+ n) xs
-                                                    else Failed
+        go !r (x:xs) = Machine $ \case
+                                    Eof _ -> Failed
+                                    Val n c -> if c == x
+                                               then Cont $ go (r |+ n) xs
+                                               else Failed
 
 newtype CharTrie = CharTrie [(Maybe Char, CharTrie)]
   deriving (Show, Eq)

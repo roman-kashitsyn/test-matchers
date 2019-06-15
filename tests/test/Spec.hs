@@ -16,6 +16,7 @@ limitations under the License.
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 import Control.Exception
 import Data.List (intercalate)
@@ -51,7 +52,7 @@ isLeafWith
   :: (Show a, Applicative f, Traversable f)
   => MatcherF f a
   -> MatcherF f (Tree a)
-isLeafWith = prism "Leaf" (\t -> case t of Leaf x' -> Just x'; _ -> Nothing)
+isLeafWith = prism "Leaf" (\case Leaf x' -> Just x'; _ -> Nothing)
 
 isForkWith
   :: (Show a, Applicative f, Traversable f)
@@ -307,15 +308,16 @@ main = hspec $ do
       let ?matchersOptionsAction = pure $ defaultPPOptions { ppMode = PlainText
                                                            , ppUseUnicode = False
                                                            }
-      (("test" :: String) `I.shouldMatch` allOf [isEmpty, isNotEmpty]) `failureMessageIs`
+      ("test" :: String) `I.shouldMatch` allOf [isEmpty, isNotEmpty]
+      `failureMessageIs`
         intercalate "\n"
         [ "[x] all of <- \"test\""
         , "  [x] is empty <- \"test\""
         , "  [v] is not empty <- \"test\""
         ]
 
-    it "can display simple labels" $ do
-      (Fork (Leaf 1) (Leaf 2) `I.shouldMatch` isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 1))
+    it "can display simple labels" $
+      Fork (Leaf 1) (Leaf 2) `I.shouldMatch` isForkWith (isLeafWith $ eq 1) (isLeafWith $ eq 1)
       `failureMessageIs`
         intercalate "\n"
         [ "✘ prism \"Fork\" ← <1>"
@@ -327,8 +329,8 @@ main = hspec $ do
         , "  <1> Fork (Leaf 1) (Leaf 2)"
         ]
 
-    it "can display composed labels" $ do
-      (2 `I.shouldMatch` (labeled "foo" $ labeled "bar" $ eq 0))
+    it "can display composed labels" $
+      2 `I.shouldMatch` labeled "foo"  (labeled "bar" $ eq 0)
       `failureMessageIs`
         "✘ [foo.bar] is a value equal to 0 ← 2"
 
@@ -337,8 +339,8 @@ main = hspec $ do
 
     it "can abbreviate sub-values in messages" $ do
       let input = "a very long string that should be turn into a ref" :: String
-
-      ((input, 1 :: Int) `I.shouldMatch` projection "first" fst (allOf [isEmpty, isNotEmpty]) `failureMessageIs`
+      (input, 1 :: Int) `I.shouldMatch` projection "first" fst (allOf [isEmpty, isNotEmpty])
+       `failureMessageIs`
         intercalate "\n"
         [ "✘ projection \"first\" ← <1>"
         , "  ✘ all of ← <2>"
@@ -347,7 +349,7 @@ main = hspec $ do
         , "where:"
         , "  <1> (<2>,1)"
         , "  <2> " ++ show input
-        ])
+        ]
 
 
   describe "Exception matching" $ do
@@ -408,7 +410,7 @@ main = hspec $ do
           [ok "is a value equal to 2" "2"]
         ]
 
-  describe "Pretty-printing options" $ do
+  describe "Pretty-printing options" $
     it "Can deduce pretty-printing options from environment" $ do
       I.optionsFromEnv [("TERM", "xterm"), ("LANG", "en_US.UTF-8")] `shouldBe`
         defaultPPOptions

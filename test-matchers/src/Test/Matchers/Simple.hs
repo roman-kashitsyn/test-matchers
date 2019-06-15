@@ -19,6 +19,7 @@ limitations under the License.
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_HADDOCK hide #-}
 {-
 |
@@ -581,7 +582,7 @@ tuple3 mx my mz =
 isNothing
   :: (Show a, Applicative f)
   => MatcherF f (Maybe a)
-isNothing = predicate (\m -> case m of Nothing -> True; _ -> False)
+isNothing = predicate (\case Nothing -> True; _ -> False)
             ("is Nothing", "is not Nothing")
 
 -- | Builds a matcher for 'Maybe' that only matches 'Just' values
@@ -598,7 +599,7 @@ isLeftWith
   :: (Show a, Show b, Traversable f, Applicative f)
   => MatcherF f a -- ^ Matcher for the left side of 'Either'.
   -> MatcherF f (Either a b)
-isLeftWith  = prism "Left"  $ \x -> case x of { Left a  -> Just a; _ -> Nothing }
+isLeftWith  = prism "Left" $ \case Left a  -> Just a; _ -> Nothing
 
 -- | Makes a matcher that only matches 'Right' values satisfying given
 -- matcher.
@@ -606,7 +607,7 @@ isRightWith
   :: (Show a, Show b, Traversable f, Applicative f)
   => MatcherF f b -- ^ Matcher for the right side of 'Either'.
   -> MatcherF f (Either a b)
-isRightWith = prism "Right" $ \x -> case x of { Right b -> Just b; _ -> Nothing }
+isRightWith = prism "Right" $ \case Right b -> Just b; _ -> Nothing
 
 -- | Implementation of Data.Functor.Covariant.contramap.
 -- Avoid using it directly, prefer 'projection' instead.
