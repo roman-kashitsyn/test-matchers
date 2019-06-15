@@ -32,7 +32,7 @@ data Name
     { firstName :: String
     , secondName :: String
     } deriving (Eq, Show)
-n
+
 data User
   = User
     { userId :: Int
