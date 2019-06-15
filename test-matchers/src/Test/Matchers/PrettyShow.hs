@@ -27,16 +27,20 @@ Stability:    experimental
 {-# LANGUAGE OverloadedStrings #-}
 module Test.Matchers.PrettyShow
   ( prettyShow
+  , prettyShowResult
+  , prettyRef
   ) where
 
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc (Doc)
 import qualified Data.Text.Prettyprint.Doc as PP
 import Test.Matchers.LexShow
-  ( TokType(..)
+  ( DisplayLimit
   , LexResult(..)
-  , Token (..)
+  , TokType(..)
+  , Token(..)
   , lexShow
+  , refToToken
   )
 
 tokenToDoc :: Token -> Doc TokType
@@ -46,7 +50,12 @@ etc :: Doc TokType
 etc = PP.pretty ("..." :: Text)
 
 -- | Pretty-prints a string representation of a value.
-prettyShow :: Int -> String -> Doc TokType
-prettyShow n s = case lexShow n s of
-                   Full tokens -> PP.hcat (map tokenToDoc tokens)
-                   Partial tokens -> PP.hcat (map tokenToDoc tokens) PP.<> etc
+prettyShow :: DisplayLimit -> String -> Doc TokType
+prettyShow n s = prettyShowResult (lexShow n s)
+
+prettyShowResult :: LexResult -> Doc TokType
+prettyShowResult (Full tokens) = PP.hcat (map tokenToDoc tokens)
+prettyShowResult (Partial tokens) = PP.hcat (map tokenToDoc tokens) PP.<> etc
+
+prettyRef :: Int -> Doc TokType
+prettyRef = tokenToDoc . refToToken

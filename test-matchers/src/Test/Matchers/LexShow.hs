@@ -32,13 +32,18 @@ different from 'Text.Read.Lex' in two aspects:
     infinite. If the stream is longer than the specified limit, a
     special token is produced by the lexer and the lexing terminates.
 -}
+{-# LANGUAGE TupleSections #-}
 module Test.Matchers.LexShow
   ( Token
   , TokType(..)
   , LexResult(..)
+  , DisplayLimit
+  , resultTokens
+  , mapLexResult
   , tokenType
   , tokenText
   , lexShow
+  , refToToken
   ) where
 
 import Machines
@@ -62,7 +67,7 @@ import Text.Read.Lex (isSymbolChar)
 data LexResult
   = Full [Token]
   | Partial [Token]
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 data Token
   = Token
@@ -78,11 +83,14 @@ data TokType
   | TokSymbol
   | TokPunct
   | TokSpace
+  | TokRef
   | TokUnknown
   deriving (Show, Eq, Ord, Enum)
 
+type DisplayLimit = Int
+
 annot :: TokType -> Machine a -> Machine (TokType, a)
-annot tok = fmap (\x -> (tok, x))
+annot tok = fmap (tok,)
 
 digit, octit, hexit :: Machine Range
 digit = satisfying isDigit
@@ -114,7 +122,7 @@ string = (\(_, r) -> (TokString, r)) <$> scan (StrStart, mempty) strScanner
         strS StrInside _ = Just StrInside
         strS StrEscape _ = Just StrInside
         strS StrEnd _ = Nothing
-        strScanner (s, r) n c = (\s' -> (s', r <> singleton n)) <$> strS s c
+        strScanner (s, r) n c = (,r <> singleton n) <$> strS s c
 
 ident :: Machine (TokType, Range)
 ident = annot TokIdent $ satisfying isFirstIdChar <> foldMany (satisfying isIdChar)
@@ -216,7 +224,20 @@ tokenize text = go (T.length text) text
                                              in Token tok tokT : go (n - len) t'
              (len, _, t') -> Token TokUnknown (T.take len t) : go (n - len) t'
 
-lexShow :: Int -> String -> LexResult
+lexShow :: DisplayLimit -> String -> LexResult
 lexShow limit showed = case splitAt limit showed of
                          (prefix, []) -> Full $ tokenize $ T.pack prefix
                          (prefix, _) -> Partial $ tokenize $ T.pack prefix
+
+-- | Creates a token that is a reference to another object.  We chose
+-- to display the references as "<n>".
+refToToken :: Int -> Token
+refToToken refId = Token TokRef $ T.pack $ "<" ++ show refId ++ ">"
+
+resultTokens :: LexResult -> [Token]
+resultTokens (Full toks) = toks
+resultTokens (Partial toks) = toks
+
+mapLexResult :: ([Token] -> [Token]) -> LexResult -> LexResult
+mapLexResult f (Full tokens) = Full (f tokens)
+mapLexResult f (Partial tokens) = Partial (f tokens)

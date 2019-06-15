@@ -32,6 +32,7 @@ import Control.Applicative (Alternative(empty, (<|>)))
 import Control.Arrow (first, (&&&))
 import Control.Category ((>>>))
 import Data.Char (isSpace, toUpper)
+import Data.Functor (($>))
 import Data.List (groupBy, partition, sortBy)
 
 import Data.Function (on)
@@ -181,7 +182,7 @@ guard p = Machine $ \i -> case i of
                              Val _ c -> if p c then Done () else Failed
 
 skipSpaces :: Machine ()
-skipSpaces = foldMany (satisfying isSpace) *> pure ()
+skipSpaces = foldMany (satisfying isSpace) $> ()
 
 ----------------------------------------------------------------------
 -- Range machines
@@ -218,7 +219,7 @@ str = go mempty
                                                     then Cont $ go (r |+ n) xs
                                                     else Failed
 
-data CharTrie = CharTrie [(Maybe Char, CharTrie)]
+newtype CharTrie = CharTrie [(Maybe Char, CharTrie)]
   deriving (Show, Eq)
 
 buildTrie :: [String] -> CharTrie

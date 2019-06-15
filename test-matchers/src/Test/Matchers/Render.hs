@@ -31,16 +31,16 @@ module Test.Matchers.Render
   , prettyPrint
   ) where
 
+import RefAbbrev (abbreviateResult)
 import RStateMonad (RState, ask, get, put, runRState)
+import Test.Matchers.LexShow (LexResult, TokType(..), lexShow)
 import Test.Matchers.Message (Message(..))
-import Test.Matchers.PrettyShow (prettyShow)
-import Test.Matchers.LexShow (TokType(..))
 import qualified Test.Matchers.Message as MSG
+import Test.Matchers.PrettyShow (prettyRef, prettyShow, prettyShowResult)
 import Test.Matchers.Simple
 
-import Data.Tuple (swap)
-import qualified Data.IntMap as IM
-import Data.List (intersperse)
+import Data.Function (on)
+import Data.List (intersperse, sortBy)
 import qualified Data.Map as M
 import Data.Text.Lazy (unpack)
 import Data.Text.Prettyprint.Doc (Doc, (<+>), (<>))
@@ -60,7 +60,6 @@ data Style
   | ValueStyle -- ^ The style to use for printing values having a Show instance.
   | TokenStyle TokType -- ^ The style to use to print a token.
   | SymbolStyle -- ^ The style to use for printing symbols.
-  | RefStyle -- ^ The style to use for references.
   | SuccessStyle -- ^ The style to use for successfully completed matchers.
   | FailureStyle -- ^ The style to use for failed matchers.
   deriving (Eq, Show)
@@ -89,7 +88,7 @@ defaultPPOptions = PPOptions
                    , ppPageWidth = 80
                    }
 
-type RenderState = RState PPOptions (M.Map String Int)
+type RenderState = RState PPOptions (M.Map LexResult Int)
 
 -- | Renders the match tree as a document.  The function tries to be
 -- pick the most readable format to represent the failure.
@@ -103,7 +102,6 @@ toAnsiStyle style = case style of
                       PlainStyle -> mempty
                       ValueStyle -> PPT.italicized
                       SymbolStyle -> PPT.italicized
-                      RefStyle -> PPT.bold
                       SuccessStyle -> PPT.colorDull PPT.Green
                       FailureStyle -> PPT.bold <> PPT.colorDull PPT.Red
                       TokenStyle tok -> tokToAnsiStyle tok
@@ -111,6 +109,7 @@ toAnsiStyle style = case style of
                                TokNumber -> PPT.colorDull PPT.Red
                                TokString -> PPT.colorDull PPT.Green
                                TokIdent -> PPT.italicized
+                               TokRef -> PPT.bold
                                _ -> mempty
 
 -- | Renders the match tree as a textual tree: nested matchers have
@@ -135,10 +134,10 @@ renderAsTree opts t =
   else doc <> PP.hardline <> "where:" <> PP.hardline <> PP.indent 2 (renderRefs refs)
   where
     (doc, refs) = runRState (renderAsTreeWithRefs t) opts M.empty
-    renderRefs = PP.vsep . map renderRef . IM.toList . IM.fromList . map swap . M.toList
-    renderRef (refId, val) = displayRef refId <+> displayValue opts val
+    renderRefs = PP.vsep . map renderRef . abbreviateResult . sortBy (compare `on` snd) . M.toList
+    renderRef (val, refId) = displayRef refId <+> applyStyle (prettyShowResult val)
 
-allocateId :: String -> RenderState Int
+allocateId :: LexResult -> RenderState Int
 allocateId msg = do
   m <- get
   case M.lookup msg m of
@@ -153,8 +152,11 @@ lengthWithinLimit n s = case splitAt n s of
                           (_, []) -> True
                           _ -> False
 
+applyStyle :: Doc TokType -> Doc Style
+applyStyle = PP.reAnnotate TokenStyle
+
 displayValue :: PPOptions -> String -> Doc Style
-displayValue opts = PP.reAnnotate TokenStyle . prettyShow (ppMaxShowLength opts)
+displayValue opts = applyStyle . prettyShow (ppMaxShowLength opts)
 
 messageToDoc :: PPOptions -> Message -> Doc Style
 messageToDoc opts msg
@@ -184,9 +186,9 @@ renderAsTreeWithRefs (MatchTree res descr labels val subnodes) = do
           case val of
             Nothing -> return descrDoc
             Just valMsg | not (lengthWithinLimit limit valMsg) -> do
-                            refId <- allocateId valMsg
+                            refId <- allocateId (lexShow (ppMaxShowLength opts) valMsg)
                             return $ PP.hsep [descrDoc, arrowDoc, displayRef refId]
-            Just valMsg -> return $ PP.hsep [descrDoc, arrowDoc, PP.pretty valMsg]
+            Just valMsg -> return $ PP.hsep [descrDoc, arrowDoc, displayValue opts valMsg]
 
 displayLabels :: [String] -> Message -> Message
 displayLabels [] m = m
@@ -205,7 +207,7 @@ arrow = MSG.fancyChar '←' "<-"
 compose = MSG.str "."
 
 displayRef :: Int -> Doc Style
-displayRef ref = PP.annotate RefStyle $ PP.hcat ["<", PP.pretty ref, ">"]
+displayRef = applyStyle . prettyRef
 
 -- | Pretty-prints the match tree according to the options provided.
 prettyPrint

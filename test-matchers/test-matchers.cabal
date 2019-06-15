@@ -22,6 +22,7 @@ library
                      , Test.Matchers.LexShow
                      , Test.Matchers.PrettyShow
   other-modules:       RStateMonad
+                     , RefAbbrev
                      , Machines
 
   build-depends:       base >=4.8 && <5
