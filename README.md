@@ -1,4 +1,4 @@
-# Test.Matchers
+# Test.Matchers — composable assertions with decent error messages
 
 A simple matcher combinators library for unit-testing heavily inspired
 by [GMock
@@ -7,27 +7,26 @@ Matchers](https://github.com/google/googletest/blob/master/googlemock/docs/Cheat
 ## Why do I need it?
 
   * It provides a simple language to express and combine assertions.
-    Always feel like `Test.Hspec.Expectations` lacks the trivial
-    function you need? Fear no more.
+    Always feel like `Test.Hspec.Expectations` lacks that simple
+    function you need? You're not alone.
 
   * It produces detailed yet compact (and colorful) error messages in
-    case of a test failure.
+    case of an assertion failure.
 
   * It highlights syntax within values it displays. All you need is
-    a Show instance. An un-readable one will work too. And yes, your
-    value can be infinite. This code won't eat all your RAM[^1]:
+    a `Show` instance. And yes, your value can be infinite.
+    This code won't eat all your RAM[^1]:
     ```haskell
     repeat 5 `shouldMatch` startsWith [6]
     ```
 
-  * It easily integrates with many test frameworks capable of
-    executing HUnit assertions
-    (e.g. [HUnit](https://github.com/hspec/HUnit#readme) or
+  * It easily integrates with many test frameworks capable of executing HUnit
+    assertions (e.g. [HUnit](https://github.com/hspec/HUnit#readme) or
     [hspec](https://hspec.github.io)),
     [tasty](https://github.com/feuerbach/tasty) and
     [QuickCheck](http://hackage.haskell.org/package/QuickCheck). These
-    integrations are provided by `hunit-matchers`, `tasty-matchers`
-    and `quickcheck-matchers` packages.
+    integrations are provided by `hunit-matchers`, `tasty-matchers` and
+    `quickcheck-matchers` packages.
 
 [^1]: Though this code can:
     ```haskell
@@ -51,7 +50,7 @@ myDiv 5 0 `shouldMatch` (rightIs $ eq 0)
 The failed test in the example above displays the following error
 message:
 
-<pre><span>✘ prism Right</span> ← <1>
+<pre><span>✘ prism "Right"</span> ← <1>
   <span>✘ is a value equal to <em>0</em></span>
 where:
   <1> <em>Left "Division by zero"</em></pre>
