@@ -332,6 +332,24 @@ main = hspec $ do
       `failureMessageIs`
         "✘ [foo.bar] is a value equal to 0 ← 2"
 
+  describe "Sub-value abbreviation" $ do
+    let ?matchersOptionsAction = pure $ defaultPPOptions { ppMode = PlainText }
+
+    it "can abbreviate sub-values in messages" $ do
+      let input = "a very long string that should be turn into a ref" :: String
+
+      ((input, 1 :: Int) `I.shouldMatch` projection "first" fst (allOf [isEmpty, isNotEmpty]) `failureMessageIs`
+        intercalate "\n"
+        [ "✘ projection \"first\" ← <1>"
+        , "  ✘ all of ← <2>"
+        , "    ✘ is empty ← <2>"
+        , "    ✔ is not empty ← <2>"
+        , "where:"
+        , "  <1> (<2>,1)"
+        , "  <2> " ++ show input
+        ])
+
+
   describe "Exception matching" $ do
 
     it "can match exceptions as normal values" $

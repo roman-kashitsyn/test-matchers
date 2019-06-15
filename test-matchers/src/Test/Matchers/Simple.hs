@@ -266,7 +266,7 @@ aggregateWith
 aggregateWith aggr descr matcherSet
   = MatcherF $ \dir value ->
                  let subnodesF = matchSetF matcherSet Positive value
-                     msgF = sequenceA $ fmap (fmap show) value
+                     msgF = traverse (fmap show) value
                  in liftA2 (\xs m -> MatchTree
                              (applyDirection dir (aggr $ map mtValue xs))
                              (pickDescription dir descr)
@@ -500,7 +500,7 @@ elementsAre
 elementsAre matcherList
   = MatcherF $ \dir ->
                  let
-                   emptyTree = makeEmptyTree descr <$> sequenceA (map (\m -> unMatcherF m Positive Nothing) matcherList)
+                   emptyTree = makeEmptyTree descr <$> traverse (\m -> unMatcherF m Positive Nothing) matcherList
 
                    mkTree fitems = do
                      items <- fitems
@@ -651,7 +651,7 @@ projection
 projection name proj set = MatcherF $ \dir value ->
   let subnodesF = matchSetF (contramapSet proj $ toMatcherSet set) dir value
       descr  = hsep ["projection", symbol name]
-      msgF = sequenceA $ fmap (fmap show) value
+      msgF = traverse (fmap show) value
   in liftA2 (\xs msg -> MatchTree (all mtValue xs) descr [] msg xs)
      subnodesF msgF
 
@@ -674,7 +674,7 @@ prism name p t = MatcherF $ \dir v ->
   case v of
     Nothing -> makeEmptyTree descr <$> matchSetF set dir Nothing
     Just fs -> (\subtrees s -> makeFullTree (all mtValue subtrees) descr s subtrees)
-      <$> matchSetF set dir (sequenceA $ fmap p fs)
+      <$> matchSetF set dir (traverse p fs)
       <*> fs
   where descr = hsep ["prism", symbol name]
         set = toMatcherSet t
