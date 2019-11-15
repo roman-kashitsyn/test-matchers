@@ -57,14 +57,15 @@ data Message
     HCat [Message]
   deriving (Show, Eq, Ord)
 
+instance Semigroup Message where
+  a <> Empty = a
+  Empty <> b = b
+  (Str x) <> (Str y) = Str (x ++ y)
+  (HCat xs) <> (HCat ys) = HCat (xs ++ ys)
+  a <> b = HCat [a, b]
+
 instance Monoid Message where
   mempty = Empty
-
-  mappend a Empty = a
-  mappend Empty b = b
-  mappend (Str x) (Str y) = Str (x ++ y)
-  mappend (HCat xs) (HCat ys) = HCat (xs ++ ys)
-  mappend a b = HCat [a, b]
 
 instance IsString Message where
   fromString [] = Empty

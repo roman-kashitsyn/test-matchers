@@ -205,9 +205,11 @@ data MatchTree
     , mtSubnodes     :: [MatchTree] -- ^ Submatchers used to produce this result.
     } deriving (Show, Eq)
 
+instance (Applicative f) => Semigroup (MatcherSetF f a) where
+  (MatcherSetF l) <> (MatcherSetF r) = MatcherSetF $ \dir x -> (<>) <$> (l dir x) <*> (r dir x)
+
 instance (Applicative f) => Monoid (MatcherSetF f a) where
   mempty = MatcherSetF $ const $ const $ pure []
-  mappend (MatcherSetF l) (MatcherSetF r) = MatcherSetF $ \dir x -> liftA2 mappend (l dir x) (r dir x)
 
 makeFullTree
   :: (Show a)

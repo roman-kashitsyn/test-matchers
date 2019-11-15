@@ -112,12 +112,14 @@ instance Monad Machine where
                               Cont c -> Cont (c >>= f)
                               Failed -> Failed
 
+instance (Semigroup a) => Semigroup (Machine a) where
+  m1 <> m2 = Machine $ \i -> case step m1 i of
+                               Failed -> Failed
+                               Done x -> fmap ((<>) x) (step m2 i)
+                               Cont c -> Cont (c <> m2)
+
 instance (Monoid a) => Monoid (Machine a) where
   mempty = pure mempty
-  m1 `mappend` m2 = Machine $ \i -> case step m1 i of
-                                      Failed -> Failed
-                                      Done x -> fmap (mappend x) (step m2 i)
-                                      Cont c -> Cont (mappend c m2)
 
 ----------------------------------------------------------------------
 -- Ranges
@@ -131,12 +133,14 @@ isEmptyR (Range b e) = b >= e
 singleton :: Int -> Range
 singleton n = Range n (n + 1)
 
-instance Monoid Range where
-  mempty = Range 0 0
-  l@(Range b1 e1) `mappend` r@(Range b2 e2)
+instance Semigroup Range where
+  l@(Range b1 e1) <> r@(Range b2 e2)
     | isEmptyR l = r
     | isEmptyR r = l
     | otherwise = Range (min b1 b2) (max e1 e2)
+
+instance Monoid Range where
+  mempty = Range 0 0
 
 (|+) :: Range -> Int -> Range
 r |+ n = r `mappend` singleton n
