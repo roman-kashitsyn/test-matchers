@@ -41,8 +41,8 @@ data User
 
 userNameIs :: (Monad f) => MatcherF f String -> MatcherF f String -> MatcherF f Name
 userNameIs fstNameM sndNameM = allOf $
-                               contramapSet mkTuple (labeled "firstName" fstNameM
-                                                     &> labeled "secondName" sndNameM)
+                               contramapSet mkTuple ([labeled "firstName" fstNameM]
+                                                  &> [labeled "secondName" sndNameM])
   where mkTuple (Name f s) = (f, s)
 
 hasUserName :: (Monad f) => MatcherF f Name -> MatcherF f User

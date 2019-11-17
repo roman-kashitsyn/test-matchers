@@ -60,7 +60,7 @@ isForkWith
   -> MatcherF f (Tree a)
   -> MatcherF f (Tree a)
 isForkWith leftM rightM = prism "Fork" p
-                          (labeled "left" leftM &> labeled "right" rightM)
+                          (allOf $ [labeled "left" leftM] &> [labeled "right" rightM])
   where p (Fork l r) = Just (l &. r)
         p _ = Nothing
 

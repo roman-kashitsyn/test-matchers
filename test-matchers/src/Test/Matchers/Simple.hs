@@ -141,7 +141,7 @@ newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f Ma
 --         ╰─┬─╯                  ╰─┬─╯                 ╰───┬───╯
 --           ╽                      ╽                       ╽
 --  ╭─────────────────╮    ╭─────────────────╮   ╭─────────────────────╮
---  │ [MatcherF f a] │ &> │ MatcherSetF f b │ = │ MatcherSetF f (a,b) │
+--  │ [MatcherF f a]  │ &> │  [MatcherF f b] │ = │  [MatcherF f (a,b)] │
 --  ╰─────────────────╯    ╰─────────────────╯   ╰─────────────────────╯
 -- @
 --
