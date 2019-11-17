@@ -55,8 +55,6 @@ module Test.Matchers.Simple
   , floatApproxEq
 
   -- * Matchers combinators
-  , singleton
-  , setOf
   , anything
   , projection
   , prism
@@ -102,7 +100,7 @@ module Test.Matchers.Simple
 
 import Control.Applicative (liftA2)
 import Control.Exception (Exception(..), Handler(..), SomeException, catches)
-import Data.Foldable (Foldable, foldMap, null, toList)
+import Data.Foldable (Foldable, null, toList)
 import Data.Functor.Identity (Identity(..), runIdentity)
 import Data.List (isInfixOf, isPrefixOf, isSuffixOf)
 import Data.Traversable (Traversable)
@@ -355,21 +353,6 @@ cmpSatisfies p sym sym_ bound = predicate (\x -> p $ compare x bound) (descr, de
 anything :: (Show a, Applicative f) => MatcherF f a
 anything = predicate (const True) ("anything", "nothing")
 
--- | Constructs a matcher set from a 'Foldable' container containing
--- matchers.
-setOf
-  :: (Applicative f, Foldable t)
-  => t (MatcherF f a)
-  -> [MatcherF f a]
-setOf = foldMap singleton
-
--- | Constructs a matcher set containing just a single matcher.
-singleton
-  :: (Functor f)
-  => MatcherF f a
-  -> [MatcherF f a]
-singleton = pure
-
 -- | Constructs a matcher that succeed if all the matchers in the
 -- provided set succeed.
 allOf
@@ -534,7 +517,7 @@ tuple2
   -> MatcherF f b -- ^ Matcher for the 2nd element of the pair.
   -> MatcherF f (a, b)
 tuple2 mx my =
-  allOf (singleton (labeled "fst" mx) &> singleton (labeled "snd" my))
+  allOf ([labeled "fst" mx] &> [labeled "snd" my])
 
 -- | Builds a matcher for a 3-tuple from the matchers for components.
 tuple3
@@ -544,9 +527,9 @@ tuple3
   -> MatcherF f c -- ^ Matcher for the 3rd element of the 3-tuple.
   -> MatcherF f (a, b, c)
 tuple3 mx my mz =
-  allOf $ contramapSet retuple (singleton (labeled "_1" mx)
-                                &> singleton (labeled "_2" my)
-                                &> singleton (labeled "_3" mz))
+  allOf $ contramapSet retuple ([labeled "_1" mx] &>
+                                [labeled "_2" my] &>
+                                [labeled "_3" mz])
   where retuple (x, y, z) = (x, (y, z))
 
 -- | A matcher for 'Maybe' that matches only 'Nothing'.
