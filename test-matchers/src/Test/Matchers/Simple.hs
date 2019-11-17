@@ -55,7 +55,6 @@ module Test.Matchers.Simple
   , floatApproxEq
 
   -- * Matchers combinators
-  , MatcherSetF
   , singleton
   , setOf
   , anything
@@ -131,7 +130,7 @@ newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f Ma
 -- Matcher sets can be composed \"sequentially\" or in
 -- \"parallel\".
 --
--- \"Parallel\" composition combines @MatcherSetF f a@ and
+-- \"Parallel\" composition combines @[MatcherF f a]@ and
 -- @MatcherSetF f b@ into @MatcherSetF f (a, b)@ and is achieved via the
 -- '&>' operator.
 --
@@ -142,11 +141,11 @@ newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f Ma
 --         ╰─┬─╯                  ╰─┬─╯                 ╰───┬───╯
 --           ╽                      ╽                       ╽
 --  ╭─────────────────╮    ╭─────────────────╮   ╭─────────────────────╮
---  │ MatcherSetF f a │ &> │ MatcherSetF f b │ = │ MatcherSetF f (a,b) │
+--  │ [MatcherF f a] │ &> │ MatcherSetF f b │ = │ MatcherSetF f (a,b) │
 --  ╰─────────────────╯    ╰─────────────────╯   ╰─────────────────────╯
 -- @
 --
--- \"Sequential\" composition combines multiple @MatcherSetF f a@ into one
+-- \"Sequential\" composition combines multiple @[MatcherF f a]@ into one
 -- and is achieved via 'mappend'.
 --
 -- @
@@ -154,40 +153,20 @@ newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f Ma
 --                     │ a │
 --                     ╰─┬─╯
 --  ╭─────────────────╮  │
---  │ MatcherSetF f a │ ╾┤
+--  │ [MatcherF f a] │ ╾┤
 --  ╰─────────────────╯  │
 --        mappend        │
 --  ╭─────────────────╮  │
---  │ MatcherSetF f a │ ╾┤
+--  │ [MatcherF f a] │ ╾┤
 --  ╰─────────────────╯  │
 --           =           │
 --  ╭─────────────────╮  │
---  │ MatcherSetF f a │ ╾╯
+--  │ [MatcherF f a] │ ╾╯
 --  ╰─────────────────╯
 -- @
-type MatcherSetF f a = [MatcherF f a]
-
-matchSetF :: Applicative f => MatcherSetF f a -> (Direction -> Maybe (f a) -> f [MatchTree])
+matchSetF :: Applicative f => [MatcherF f a] -> (Direction -> Maybe (f a) -> f [MatchTree])
 matchSetF set =
     \dir m -> traverse (\(MatcherF f) -> f dir m) set
-
-class CanBuildMatcherSetFrom t where
-  type MatcherSetElem t :: *
-  type MatcherSetEffect t :: * -> *
-
-  toMatcherSet :: t -> MatcherSetF (MatcherSetEffect t) (MatcherSetElem t)
-
-instance (Functor f) => CanBuildMatcherSetFrom (MatcherF f a) where
-  type MatcherSetElem (MatcherF f a) = a
-  type MatcherSetEffect (MatcherF f a) = f
-
-  toMatcherSet = singleton
-
-instance (Applicative f) => CanBuildMatcherSetFrom [MatcherF f a] where
-  type MatcherSetElem [MatcherF f a] = a
-  type MatcherSetEffect [MatcherF f a] = f
-
-  toMatcherSet = id
 
 -- | A specialization of the 'MatcherF' that can only match pure
 -- values.
@@ -257,7 +236,7 @@ aggregateWith
   :: (Show a, Applicative f)
   => ([Bool] -> Bool)
   -> (Message, Message)
-  -> MatcherSetF f a
+  -> [MatcherF f a]
   -> MatcherF f a
 aggregateWith aggr descr matcherSet
   = MatcherF $ \dir value ->
@@ -381,37 +360,35 @@ anything = predicate (const True) ("anything", "nothing")
 setOf
   :: (Applicative f, Foldable t)
   => t (MatcherF f a)
-  -> MatcherSetF f a
+  -> [MatcherF f a]
 setOf = foldMap singleton
 
 -- | Constructs a matcher set containing just a single matcher.
 singleton
   :: (Functor f)
   => MatcherF f a
-  -> MatcherSetF f a
+  -> [MatcherF f a]
 singleton = pure
 
 -- | Constructs a matcher that succeed if all the matchers in the
 -- provided set succeed.
 allOf
-  :: ( CanBuildMatcherSetFrom t
-     , Show (MatcherSetElem t)
-     , Applicative (MatcherSetEffect t)
+  :: ( Show a
+     , Applicative f
      )
-  => t -- ^ A container with matchers.
-  -> MatcherF (MatcherSetEffect t) (MatcherSetElem t)
-allOf = aggregateWith and ("all of", "not all of") . toMatcherSet
+  => [MatcherF f a]
+  -> MatcherF f a
+allOf = aggregateWith and ("all of", "not all of")
 
 -- | A more convenient version of 'oneOfSet' that works on foldable
 -- containers instead of matcher sets.
 oneOf
-  :: ( CanBuildMatcherSetFrom t
-     , Show (MatcherSetElem t)
-     , Applicative (MatcherSetEffect t)
+  :: ( Show a
+     , Applicative f
      )
-  => t -- ^ A container with matchers.
-  -> MatcherF (MatcherSetEffect t) (MatcherSetElem t)
-oneOf = aggregateWith or ("one of", "none of") . toMatcherSet
+  => [MatcherF f a]
+  -> MatcherF f a
+oneOf = aggregateWith or ("one of", "none of")
 
 -- | Inverts the given matcher.
 --
@@ -616,8 +593,8 @@ contramap f p = MatcherF $ \dir -> unMatcherF p dir . fmap (fmap f)
 contramapSet
   :: (Functor f)
   => (s -> a)
-  -> MatcherSetF f a
-  -> MatcherSetF f s
+  -> [MatcherF f a]
+  -> [MatcherF f s]
 contramapSet = map . contramap
 
 -- | Makes a matcher that attaches a label to the outcome of another
@@ -633,18 +610,15 @@ labeled l = transformTree addLabel
 -- | Builds a matcher for a structure from a set of matchers for its substructure.
 -- The whole matcher succeeds if all the matchers from the set succeed.
 projection
-  :: ( CanBuildMatcherSetFrom t
-     , a ~ MatcherSetElem t
-     , f ~ MatcherSetEffect t
-     , Show s
+  :: ( Show s
      , Applicative f
      )
   => String -- ^ The name of the projection.
   -> (s -> a) -- ^ The projection from "s" to "a".
-  -> t -- ^ The set of matchers for the projected "a".
-  -> MatcherF (MatcherSetEffect t) s
+  -> MatcherF f a -- ^ The set of matchers for the projected "a".
+  -> MatcherF f s
 projection name proj set = MatcherF $ \dir value ->
-  let subnodesF = matchSetF (contramapSet proj $ toMatcherSet set) dir value
+  let subnodesF = matchSetF (contramapSet proj [set]) dir value
       descr  = hsep ["projection", symbol name]
       msgF = traverse (fmap show) value
   in liftA2 (\xs msg -> MatchTree (all mtValue xs) descr [] msg xs)
@@ -654,16 +628,13 @@ projection name proj set = MatcherF $ \dir value ->
 -- prism projection. The results of the matchers in the set are
 -- aggregated with 'and'.
 prism
-  :: ( CanBuildMatcherSetFrom t
-     , a ~ MatcherSetElem t
-     , f ~ MatcherSetEffect t
-     , Show s
+  :: ( Show s
      , Traversable f
      , Applicative f
      )
   => String -- ^ The name of the selected alternative.
   -> (s -> Maybe a) -- ^ The selector for the alternative "a".
-  -> t -- ^ The set of matchers for the alternative "a".
+  -> MatcherF f a -- ^ The set of matchers for the alternative "a".
   -> MatcherF f s
 prism name p t = MatcherF $ \dir v ->
   case v of
@@ -672,8 +643,7 @@ prism name p t = MatcherF $ \dir v ->
       <$> matchSetF set dir (traverse p fs)
       <*> fs
   where descr = hsep ["prism", symbol name]
-        set = toMatcherSet t
-
+        set = [t]
 
 -- | Represents a result of IO action execution.
 data ActionOutcome e
@@ -764,9 +734,9 @@ infixr 7 &.
     , Show b
     , Applicative f
     )
-  => MatcherSetF f a
-  -> MatcherSetF f b
-  -> MatcherSetF f (a, b)
+  => [MatcherF f a]
+  -> [MatcherF f b]
+  -> [MatcherF f (a, b)]
 ma &> mb =
     mappend
     (map (contramap fst) ma)
