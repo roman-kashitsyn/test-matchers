@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-resolver: lts-9.21
+resolver: lts-14.14
 packages:
   - test-matchers
   - hunit-matchers
   - tasty-matchers
   - quickcheck-matchers
   - tests
-
