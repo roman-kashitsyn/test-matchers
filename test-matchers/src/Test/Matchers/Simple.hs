@@ -165,19 +165,17 @@ newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f Ma
 --  │ MatcherSetF f a │ ╾╯
 --  ╰─────────────────╯
 -- @
-newtype MatcherSetF f a = MatcherSetF { matchSetF :: Direction -> Maybe (f a) -> f [MatchTree] }
+type MatcherSetF f a = [MatcherF f a]
+
+matchSetF :: Applicative f => MatcherSetF f a -> (Direction -> Maybe (f a) -> f [MatchTree])
+matchSetF set =
+    \dir m -> traverse (\(MatcherF f) -> f dir m) set
 
 class CanBuildMatcherSetFrom t where
   type MatcherSetElem t :: *
   type MatcherSetEffect t :: * -> *
 
   toMatcherSet :: t -> MatcherSetF (MatcherSetEffect t) (MatcherSetElem t)
-
-instance CanBuildMatcherSetFrom (MatcherSetF f a) where
-  type MatcherSetElem (MatcherSetF f a) = a
-  type MatcherSetEffect (MatcherSetF f a) = f
-
-  toMatcherSet = id
 
 instance (Functor f) => CanBuildMatcherSetFrom (MatcherF f a) where
   type MatcherSetElem (MatcherF f a) = a
@@ -189,7 +187,7 @@ instance (Applicative f) => CanBuildMatcherSetFrom [MatcherF f a] where
   type MatcherSetElem [MatcherF f a] = a
   type MatcherSetEffect [MatcherF f a] = f
 
-  toMatcherSet = setOf
+  toMatcherSet = id
 
 -- | A specialization of the 'MatcherF' that can only match pure
 -- values.
@@ -204,12 +202,6 @@ data MatchTree
     , mtMatchedValue :: Maybe String -- ^ Textual representation of the value matched.
     , mtSubnodes     :: [MatchTree] -- ^ Submatchers used to produce this result.
     } deriving (Show, Eq)
-
-instance (Applicative f) => Semigroup (MatcherSetF f a) where
-  (MatcherSetF l) <> (MatcherSetF r) = MatcherSetF $ \dir x -> (<>) <$> (l dir x) <*> (r dir x)
-
-instance (Applicative f) => Monoid (MatcherSetF f a) where
-  mempty = MatcherSetF $ const $ const $ pure []
 
 makeFullTree
   :: (Show a)
@@ -397,7 +389,7 @@ singleton
   :: (Functor f)
   => MatcherF f a
   -> MatcherSetF f a
-singleton = MatcherSetF . fmap (fmap (fmap pure)) . unMatcherF
+singleton = pure
 
 -- | Constructs a matcher that succeed if all the matchers in the
 -- provided set succeed.
@@ -626,8 +618,7 @@ contramapSet
   => (s -> a)
   -> MatcherSetF f a
   -> MatcherSetF f s
-contramapSet f set = MatcherSetF run
-  where run dir = matchSetF set dir . fmap (fmap f)
+contramapSet = map . contramap
 
 -- | Makes a matcher that attaches a label to the outcome of another
 -- matcher.
@@ -768,23 +759,17 @@ x &. y = (x, y)
 infixr 7 &.
 
 -- | Parallel matcher set composition operator, see 'MatcherSetF' for details.
-(&>)
-  :: ( CanBuildMatcherSetFrom s
-     , CanBuildMatcherSetFrom t
-     , a ~ MatcherSetElem s
-     , b ~ MatcherSetElem t
-     , f ~ MatcherSetEffect s
-     , f ~ MatcherSetEffect t
-     , Show a
-     , Show b
-     , Applicative f
-     )
-  => s
-  -> t
+(&>) ::
+    ( Show a
+    , Show b
+    , Applicative f
+    )
+  => MatcherSetF f a
+  -> MatcherSetF f b
   -> MatcherSetF f (a, b)
-ma &> mb = MatcherSetF $ \dir maybeP ->
-  liftA2 mappend
-  (matchSetF (toMatcherSet ma) dir $ fmap (fmap fst) maybeP)
-  (matchSetF (toMatcherSet mb) dir $ fmap (fmap snd) maybeP)
+ma &> mb =
+    mappend
+    (map (contramap fst) ma)
+    (map (contramap snd) mb)
 
 infixr 7 &>
