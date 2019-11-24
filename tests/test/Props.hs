@@ -104,7 +104,7 @@ prop_proj_dir_invariant :: Int -> Property
 prop_proj_dir_invariant =
   let checkTree val root = mtValue root == val && all (checkTree val) (mtSubnodes root)
   in \x -> forAll (elements [Positive, Negative]) $ \dir ->
-    let m = projection "id" id (eq x)
+    let m = projection "id" id [eq x]
         tree = match (case dir of
                          Positive -> m
                          Negative -> negationOf m) x

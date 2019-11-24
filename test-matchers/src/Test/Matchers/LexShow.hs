@@ -122,7 +122,7 @@ string = (\(_, r) -> (TokString, r)) <$> scan (StrStart, mempty) strScanner
         strS StrInside _ = Just StrInside
         strS StrEscape _ = Just StrInside
         strS StrEnd _ = Nothing
-        strScanner (s, r) n c = (,r <> [n]) <$> strS s c
+        strScanner (s, r) n c = (,r <> singleton n) <$> strS s c
 
 ident :: Machine (TokType, Range)
 ident = annot TokIdent $ satisfying isFirstIdChar <> foldMany (satisfying isIdChar)

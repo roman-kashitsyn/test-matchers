@@ -46,10 +46,10 @@ userNameIs fstNameM sndNameM = allOf $
   where mkTuple (Name f s) = (f, s)
 
 hasUserName :: (Monad f) => MatcherF f Name -> MatcherF f User
-hasUserName = projection "userName" userName
+hasUserName m = projection "userName" userName [m]
 
 hasUserId :: (Monad f) => MatcherF f Int -> MatcherF f User
-hasUserId = projection "userId" userId
+hasUserId m = projection "userId" userId [m]
 
 isUserWith
   :: (Monad f)

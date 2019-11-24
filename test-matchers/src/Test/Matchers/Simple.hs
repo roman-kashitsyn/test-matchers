@@ -134,33 +134,33 @@ newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f Ma
 --
 -- @
 --
---         ╭───╮                  ╭───╮                 ╭───────╮
---         │ a │        &.        │ b │        =        │ (a,b) │
---         ╰─┬─╯                  ╰─┬─╯                 ╰───┬───╯
---           ╽                      ╽                       ╽
---  ╭─────────────────╮    ╭─────────────────╮   ╭─────────────────────╮
---  │ [MatcherF f a]  │ &> │  [MatcherF f b] │ = │  [MatcherF f (a,b)] │
---  ╰─────────────────╯    ╰─────────────────╯   ╰─────────────────────╯
+--         ╭───╮                 ╭───╮               ╭───────╮
+--         │ a │       &.        │ b │       =       │ (a,b) │
+--         ╰─┬─╯                 ╰─┬─╯               ╰───┬───╯
+--           ╽                     ╽                     ╽
+--  ╭────────────────╮    ╭────────────────╮   ╭────────────────────╮
+--  │ [MatcherF f a] │ &> │ [MatcherF f b] │ = │ [MatcherF f (a,b)] │
+--  ╰────────────────╯    ╰────────────────╯   ╰────────────────────╯
 -- @
 --
 -- \"Sequential\" composition combines multiple @[MatcherF f a]@ into one
 -- and is achieved via 'mappend'.
 --
 -- @
---                     ╭───╮
---                     │ a │
---                     ╰─┬─╯
---  ╭─────────────────╮  │
+--                    ╭───╮
+--                    │ a │
+--                    ╰─┬─╯
+--  ╭────────────────╮  │
 --  │ [MatcherF f a] │ ╾┤
---  ╰─────────────────╯  │
---        mappend        │
---  ╭─────────────────╮  │
+--  ╰────────────────╯  │
+--        mappend       │
+--  ╭────────────────╮  │
 --  │ [MatcherF f a] │ ╾┤
---  ╰─────────────────╯  │
---           =           │
---  ╭─────────────────╮  │
+--  ╰────────────────╯  │
+--           =          │
+--  ╭────────────────╮  │
 --  │ [MatcherF f a] │ ╾╯
---  ╰─────────────────╯
+--  ╰────────────────╯
 -- @
 matchSetF :: Applicative f => [MatcherF f a] -> (Direction -> Maybe (f a) -> f [MatchTree])
 matchSetF set =
@@ -416,9 +416,9 @@ hasLength
   :: (Show (t a), Foldable t, Applicative f)
   => MatcherF f Int -- ^ Matcher for the container size.
   -> MatcherF f (t a)
-hasLength = projection "length" length
+hasLength m = projection "length" length [m]
 
--- | Checks that each element of the container matches the provided
+-- | checks that each element of the container matches the provided
 -- matcher for container elements.  If the container is empty, the
 -- matcher still succeeds.
 --
@@ -545,7 +545,7 @@ isJustWith
   :: (Show a, Applicative f, Traversable f)
   => MatcherF f a
   -> MatcherF f (Maybe a)
-isJustWith = prism "Just" id
+isJustWith m = prism "Just" id [m]
 
 -- | Makes a matcher that only matches 'Left' values satisfying given
 -- matcher.
@@ -553,7 +553,7 @@ isLeftWith
   :: (Show a, Show b, Traversable f, Applicative f)
   => MatcherF f a -- ^ Matcher for the left side of 'Either'.
   -> MatcherF f (Either a b)
-isLeftWith  = prism "Left" $ \case Left a  -> Just a; _ -> Nothing
+isLeftWith m = prism "Left" (\case Left a  -> Just a; _ -> Nothing) [m]
 
 -- | Makes a matcher that only matches 'Right' values satisfying given
 -- matcher.
@@ -561,7 +561,7 @@ isRightWith
   :: (Show a, Show b, Traversable f, Applicative f)
   => MatcherF f b -- ^ Matcher for the right side of 'Either'.
   -> MatcherF f (Either a b)
-isRightWith = prism "Right" $ \case Right b -> Just b; _ -> Nothing
+isRightWith m = prism "Right" (\case Right b -> Just b; _ -> Nothing) [m]
 
 -- | Implementation of Data.Functor.Covariant.contramap.
 -- Avoid using it directly, prefer 'projection' instead.
@@ -598,10 +598,10 @@ projection
      )
   => String -- ^ The name of the projection.
   -> (s -> a) -- ^ The projection from "s" to "a".
-  -> MatcherF f a -- ^ The set of matchers for the projected "a".
+  -> [MatcherF f a] -- ^ The set of matchers for the projected "a".
   -> MatcherF f s
 projection name proj set = MatcherF $ \dir value ->
-  let subnodesF = matchSetF (contramapSet proj [set]) dir value
+  let subnodesF = matchSetF (contramapSet proj set) dir value
       descr  = hsep ["projection", symbol name]
       msgF = traverse (fmap show) value
   in liftA2 (\xs msg -> MatchTree (all mtValue xs) descr [] msg xs)
@@ -617,16 +617,15 @@ prism
      )
   => String -- ^ The name of the selected alternative.
   -> (s -> Maybe a) -- ^ The selector for the alternative "a".
-  -> MatcherF f a -- ^ The set of matchers for the alternative "a".
+  -> [MatcherF f a] -- ^ The set of matchers for the alternative "a".
   -> MatcherF f s
-prism name p t = MatcherF $ \dir v ->
+prism name p set = MatcherF $ \dir v ->
   case v of
     Nothing -> makeEmptyTree descr <$> matchSetF set dir Nothing
     Just fs -> (\subtrees s -> makeFullTree (all mtValue subtrees) descr s subtrees)
       <$> matchSetF set dir (traverse p fs)
       <*> fs
   where descr = hsep ["prism", symbol name]
-        set = [t]
 
 -- | Represents a result of IO action execution.
 data ActionOutcome e

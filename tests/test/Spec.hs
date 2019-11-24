@@ -52,7 +52,7 @@ isLeafWith
   :: (Show a, Applicative f, Traversable f)
   => MatcherF f a
   -> MatcherF f (Tree a)
-isLeafWith = prism "Leaf" (\case Leaf x' -> Just x'; _ -> Nothing)
+isLeafWith m = prism "Leaf" (\case Leaf x' -> Just x'; _ -> Nothing) [m]
 
 isForkWith
   :: (Show a, Applicative f, Traversable f)
@@ -60,7 +60,7 @@ isForkWith
   -> MatcherF f (Tree a)
   -> MatcherF f (Tree a)
 isForkWith leftM rightM = prism "Fork" p
-                          (allOf $ [labeled "left" leftM] &> [labeled "right" rightM])
+                          ([labeled "left" leftM] &> [labeled "right" rightM])
   where p (Fork l r) = Just (l &. r)
         p _ = Nothing
 
@@ -254,8 +254,8 @@ main = hspec $ do
         [ nok "is a value < -1" "1"
         , nok "is a value > 1" "1"
         ]
-      match (negationOf $ allOf [ projection "fst" fst (eq 1)
-                                , projection "snd" snd (eq 2)
+      match (negationOf $ allOf [ projection "fst" fst [eq 1]
+                                , projection "snd" snd [eq 2]
                                 ]) (1, 2)
         `shouldBeEquiv`
         mtNok "not all of" (Just "(1,2)")
@@ -339,13 +339,12 @@ main = hspec $ do
 
     it "can abbreviate sub-values in messages" $ do
       let input = "a very long string that should be turn into a ref" :: String
-      (input, 1 :: Int) `I.shouldMatch` projection "first" fst (allOf [isEmpty, isNotEmpty])
+      (input, 1 :: Int) `I.shouldMatch` projection "first" fst [isEmpty, isNotEmpty]
        `failureMessageIs`
         intercalate "\n"
         [ "✘ projection \"first\" ← <1>"
-        , "  ✘ all of ← <2>"
-        , "    ✘ is empty ← <2>"
-        , "    ✔ is not empty ← <2>"
+        , "  ✘ is empty ← <2>"
+        , "  ✔ is not empty ← <2>"
         , "where:"
         , "  <1> (<2>,1)"
         , "  <2> " ++ show input
@@ -356,7 +355,7 @@ main = hspec $ do
 
     it "can match exceptions as normal values" $
       ioError unsupportedOperation `shouldMatchIO`
-        throws (projection "ioe_type" ioe_type $ eq UnsupportedOperation)
+        throws (projection "ioe_type" ioe_type [eq UnsupportedOperation])
 
     it "can match any exception" $
       ioError unsupportedOperation `shouldMatchIO`

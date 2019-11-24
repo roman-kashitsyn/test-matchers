@@ -21,7 +21,7 @@ import System.Exit (exitSuccess, exitFailure)
 
 prop_reverse_involutive :: [Int] -> MatchTree
 prop_reverse_involutive xs = match (pReverse $ pReverse $ eq xs) xs
-  where pReverse = projection "reverse" reverse
+  where pReverse m = projection "reverse" reverse [m]
 
 main :: IO ()
 main = do
