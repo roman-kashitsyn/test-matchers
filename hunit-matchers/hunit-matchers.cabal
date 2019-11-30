@@ -5,7 +5,7 @@ synopsis:            An integration layer between test-matchers and HUnit.
 license:             Apache-2.0
 author:              Roman Kashitsyn
 maintainer:          roman.kashitsyn@gmail.com
-copyright:           2018 Google LLC
+copyright:           2018-2019 Google LLC
 category:            Testing
 build-type:          Simple
 extra-source-files:  ChangeLog.md

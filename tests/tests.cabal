@@ -4,7 +4,7 @@ synopsis:            Tests for test-matchers and various integrations.
 license:             Apache-2.0
 author:              Roman Kashitsyn
 maintainer:          roman.kashitsyn@gmail.com
-copyright:           2018 Google LLC
+copyright:           2018-2019 Google LLC
 category:            Testing
 build-type:          Simple
 cabal-version:       >=1.10
