@@ -704,7 +704,7 @@ x &. y = (x, y)
 
 infixr 7 &.
 
--- | Parallel matcher set composition operator, see 'MatcherSetF' for details.
+-- | Parallel matcher set composition operator, see 'MatcherF' for details.
 (&>) ::
     (Show a, Show b, Applicative f)
   => [MatcherF f a]
