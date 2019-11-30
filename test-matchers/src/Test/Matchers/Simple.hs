@@ -312,28 +312,28 @@ floatApproxEq value = predicate approxEq (descr, descr_)
     descr  = hsep ["is", "a", "value", "approx.", "equal", "to", display value]
     descr_ = hsep ["is", "a", "value", "not", "equal", "to", display value]
 
--- | Mathcer that succeeds if the argument is /greater than/ the
+-- | Matcher that succeeds if the argument is /greater than/ the
 -- specified value.
 gt :: (Ord a, Show a, Applicative f)
    => a
    -> MatcherF f a
 gt = cmpSatisfies (== GT) (str ">") (fancyChar '≤' "<=")
 
--- | Mathcer that succeeds if the argument is /greater than or equal to/
+-- | Matcher that succeeds if the argument is /greater than or equal to/
 -- the specified value.
 ge :: (Ord a, Show a, Applicative f)
    => a
    -> MatcherF f a
 ge = negationOf . lt
 
--- | Mathcer that succeeds if the argument is /less than/ the
+-- | Matcher that succeeds if the argument is /less than/ the
 -- specified value.
 lt :: (Ord a, Show a, Applicative f)
    => a
    -> MatcherF f a
 lt = cmpSatisfies (== LT) (str "<") (fancyChar '≥' ">=")
 
--- | Mathcer that succeeds if the argument is /less than or equal to/
+-- | Matcher that succeeds if the argument is /less than or equal to/
 -- the specified value.
 le :: (Ord a, Show a, Applicative f)
    => a
@@ -359,9 +359,7 @@ anything = predicate (const True) ("anything", "nothing")
 -- | Constructs a matcher that succeed if all the matchers in the
 -- provided set succeed.
 allOf
-  :: ( Show a
-     , Applicative f
-     )
+  :: (Show a, Applicative f)
   => [MatcherF f a]
   -> MatcherF f a
 allOf = aggregateWith and ("all of", "not all of")
@@ -369,9 +367,7 @@ allOf = aggregateWith and ("all of", "not all of")
 -- | A more convenient version of 'oneOfSet' that works on foldable
 -- containers instead of matcher sets.
 oneOf
-  :: ( Show a
-     , Applicative f
-     )
+  :: (Show a, Applicative f)
   => [MatcherF f a]
   -> MatcherF f a
 oneOf = aggregateWith or ("one of", "none of")
@@ -596,9 +592,7 @@ labeled l = transformTree addLabel
 -- | Builds a matcher for a structure from a set of matchers for its substructure.
 -- The whole matcher succeeds if all the matchers from the set succeed.
 projection
-  :: ( Show s
-     , Applicative f
-     )
+  :: (Show s, Applicative f)
   => String -- ^ The name of the projection.
   -> (s -> a) -- ^ The projection from "s" to "a".
   -> [MatcherF f a] -- ^ The set of matchers for the projected "a".
@@ -614,10 +608,7 @@ projection name proj set = MatcherF $ \dir value ->
 -- prism projection. The results of the matchers in the set are
 -- aggregated with 'and'.
 prism
-  :: ( Show s
-     , Traversable f
-     , Applicative f
-     )
+  :: (Show s, Traversable f, Applicative f)
   => String -- ^ The name of the selected alternative.
   -> (s -> Maybe a) -- ^ The selector for the alternative "a".
   -> [MatcherF f a] -- ^ The set of matchers for the alternative "a".
@@ -715,10 +706,7 @@ infixr 7 &.
 
 -- | Parallel matcher set composition operator, see 'MatcherSetF' for details.
 (&>) ::
-    ( Show a
-    , Show b
-    , Applicative f
-    )
+    (Show a, Show b, Applicative f)
   => [MatcherF f a]
   -> [MatcherF f b]
   -> [MatcherF f (a, b)]
