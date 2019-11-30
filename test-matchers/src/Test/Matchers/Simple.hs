@@ -119,17 +119,16 @@ data Direction
 -- when some parts of the structure being matched are missing.  The
 -- @f@ parameter is there so that we can match not just pure values
 -- but IO actions as well, see the 'throws' combinator as an example.
-newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f MatchTree }
-
--- | A (possibly empty) group of matchers. A set of matchers can be
+--
+-- '[MatcherF f a]' is a (possibly empty) group of matchers. It can be
 -- turned into a proper matcher via aggregation functions,
--- e.g. 'allOf' or 'oneOf'.
+-- e.g., 'allOf', 'oneOf', 'project', 'prism', etc.
 --
 -- Matcher sets can be composed \"sequentially\" or in
 -- \"parallel\".
 --
 -- \"Parallel\" composition combines @[MatcherF f a]@ and
--- @MatcherSetF f b@ into @MatcherSetF f (a, b)@ and is achieved via the
+-- @[MatcherF f b]@ into a @[MatcherF f (a, b)]@ and is achieved via the
 -- '&>' operator.
 --
 -- @
@@ -144,7 +143,7 @@ newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f Ma
 -- @
 --
 -- \"Sequential\" composition combines multiple @[MatcherF f a]@ into one
--- and is achieved via 'mappend'.
+-- and is achieved via simple list concatenation.
 --
 -- @
 --                    ╭───╮
@@ -162,7 +161,11 @@ newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f Ma
 --  │ [MatcherF f a] │ ╾╯
 --  ╰────────────────╯
 -- @
-matchSetF :: Applicative f => [MatcherF f a] -> (Direction -> Maybe (f a) -> f [MatchTree])
+newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f MatchTree }
+
+type MatcherSetF f a = Direction -> Maybe (f a) -> f [MatchTree]
+
+matchSetF :: Applicative f => [MatcherF f a] -> MatcherSetF f a
 matchSetF set =
     \dir m -> traverse (\(MatcherF f) -> f dir m) set
 
