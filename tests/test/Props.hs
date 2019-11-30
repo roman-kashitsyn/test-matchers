@@ -91,7 +91,7 @@ sameTokens xs = check (filter (\t -> tokenType t /= TokSpace) xs)
   where check [] [] = True
         check (t:ts) (l:ls) = let tokIs s = T.pack s == tokenText t
                               in case (tokenType t, l) of
-                                   (TokNumber, Number n) -> check ts ls
+                                   (TokNumber, Number _) -> check ts ls
                                    (TokChar, Char c) -> tokIs (show c) && check ts ls
                                    (TokString, String s) -> tokIs (show s) && check ts ls
                                    (TokIdent, Ident s) -> tokIs s && check ts ls
