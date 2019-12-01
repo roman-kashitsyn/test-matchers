@@ -41,14 +41,17 @@ where:
   <1> <em>Left "Division by zero"</em></pre>
 
 Matchers are not limited to pure values, they can also match the outcome of an `IO` operations.
-An example of checking that an `IO` throws exception you expect:
+An example of checking that an `IO` action throws the exception you expect:
 
 ```haskell
 myAction `shouldMatchIO`
-  (throws $ projection "ioe_type" ioe_type $ eq UnsupportedOperation)
-  --  ^     ^                                   ^ 
-  --  |     Such that calling 'ioe_type' on it  results in 'UnsupportedOperation'
-  --  The action must throw an 'IOException' (the type is deduced from the 'projection')
+  --
+  --  +- 'myAction' must throw an 'IOException' (the type is deduced from 'ioe_type' in 'projection')
+  --  v
+  (throws $ projection "ioe_type" ioe_type [eq UnsupportedOperation])
+  --        ^                                  ^
+  --        +- such that applying 'ioe_type'   |
+  --                                           +- results in 'UnsupportedOperation'
 ```
 
 # Related resources
