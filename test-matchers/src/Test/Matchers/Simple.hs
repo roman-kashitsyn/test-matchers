@@ -124,42 +124,39 @@ data Direction
 -- turned into a proper matcher via aggregation functions,
 -- e.g., 'allOf', 'oneOf', 'project', 'prism', etc.
 --
--- Matcher sets can be composed \"sequentially\" or in
--- \"parallel\".
+-- Matcher sets can be composed \"sequentially\" or in \"parallel\".
 --
 -- \"Parallel\" composition combines @[MatcherF f a]@ and
--- @[MatcherF f b]@ into a @[MatcherF f (a, b)]@ and is achieved via the
--- '&>' operator.
+-- @[MatcherF f b]@ into a @[MatcherF f (a, b)]@ and is achieved via
+-- operator '&>'.
 --
 -- @
 --
---         ╭───╮                 ╭───╮               ╭───────╮
---         │ a │       &.        │ b │       =       │ (a,b) │
---         ╰─┬─╯                 ╰─┬─╯               ╰───┬───╯
---           ╽                     ╽                     ╽
---  ╭────────────────╮    ╭────────────────╮   ╭────────────────────╮
---  │ [MatcherF f a] │ &> │ [MatcherF f b] │ = │ [MatcherF f (a,b)] │
---  ╰────────────────╯    ╰────────────────╯   ╰────────────────────╯
+--         +---+                 +---+               +-------+
+--         | a |       &.        | b |       =       | (a,b) |
+--         +-+-+                 +-+-+               +---+---+
+--           |                     |                     |
+--           v                     v                     v
+--  +----------------+    +----------------+   +--------------------+
+--  | [MatcherF f a] | &> | [MatcherF f b] | = | [MatcherF f (a,b)] |
+--  +----------------+    +----------------+   +--------------------+
 -- @
 --
 -- \"Sequential\" composition combines multiple @[MatcherF f a]@ into one
 -- and is achieved via simple list concatenation.
 --
 -- @
---                    ╭───╮
---                    │ a │
---                    ╰─┬─╯
---  ╭────────────────╮  │
---  │ [MatcherF f a] │ ╾┤
---  ╰────────────────╯  │
---        mappend       │
---  ╭────────────────╮  │
---  │ [MatcherF f a] │ ╾┤
---  ╰────────────────╯  │
---           =          │
---  ╭────────────────╮  │
---  │ [MatcherF f a] │ ╾╯
---  ╰────────────────╯
+--  +----------------+      +---+
+--  | [MatcherF f a] |<-----| a |
+--  +----------------+      +-+-+
+--        mappend             |
+--  +----------------+        |
+--  | [MatcherF f a] |<-------+
+--  +----------------+        |
+--           =                |
+--  +----------------+        |
+--  | [MatcherF f a] |<-------+
+--  +----------------+
 -- @
 newtype MatcherF f a = MatcherF { unMatcherF :: Direction -> Maybe (f a) -> f MatchTree }
 
