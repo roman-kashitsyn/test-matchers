@@ -3,13 +3,14 @@ version:             0.1.0.0
 synopsis:            An integration layer between test-matchers and HUnit.
 -- description
 license:             Apache-2.0
+license-file:        LICENSE
 author:              Roman Kashitsyn
 maintainer:          roman.kashitsyn@gmail.com
 copyright:           2018-2019 Google LLC
 category:            Testing
 build-type:          Simple
 extra-source-files:  ChangeLog.md
-cabal-version:       >=1.10
+cabal-version:       2.0
 
 library
   exposed-modules:     Test.Matchers.HUnit
