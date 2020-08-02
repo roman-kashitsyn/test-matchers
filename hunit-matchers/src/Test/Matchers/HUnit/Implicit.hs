@@ -1,5 +1,6 @@
 {-
 Copyright 2018-2019 Google LLC
+Copyright 2020 Roman Kashitsyn
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +19,6 @@ limitations under the License.
 {- |
 Module:       Test.Matchers.HUnit.Implicit
 Description:  HUnit integration for Test.Matchers: the interface with implicit parameters.
-Copyright:    2018-2019 Google LLC
 License:      Apache2
 Maintainer:   roman.kashitsyn@gmail.com
 Stability:    experimental

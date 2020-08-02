@@ -1,5 +1,6 @@
 {-
 Copyright 2018-2019 Google LLC
+Copyright 2020 Roman Kashitsyn
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,7 +18,6 @@ limitations under the License.
 |
 Module:       Test.Matchers.PrettyShow
 Description:  Pretty-print 'show'-ed values.
-Copyright:    2018-2019 Google LLC
 License:      Apache2
 Maintainer:   roman.kashitsyn@gmail.com
 Stability:    experimental
